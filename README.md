@@ -1,5 +1,7 @@
 # Capi2Argo Cluster Operator
 
+[![CI](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml)
+
 Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into ArgoCD Cluster definitions and keep them synchronized. It aims to act as an integration bridge and solve an automation gap for users that combine these tools to provision Kubernetes Clusters.
 
 ## What It Does
