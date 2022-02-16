@@ -1,0 +1,8 @@
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: capi2argo-cluster-operator
+repo: github.com/dntosas/capi2argo-cluster-operator
+version: "3"
