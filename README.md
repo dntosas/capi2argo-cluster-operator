@@ -31,7 +31,7 @@ Argo can also take care of deploying these utils but eventually credentials will
 
 But how can we automate this? Capi2Argo Cluster Operator was created so it can take care of above actions.
 
-CAOC implements them in an automated loop that watches for changing events in secret resources and if condition are met to be a CAPI compliant, it converts and deploy them as Argo compatible ones. What is actually does under the hood, is a god simple [KRM](https://github.com/kubernetes/design-proposals-archive/blob/8da1442ea29adccea40693357d04727127e045ed/architecture/resource-management.md) transformation like this:
+CACO implements them in an automated loop that watches for changing events in secret resources and if condition are met to be a CAPI compliant, it converts and deploy them as Argo compatible ones. What is actually does under the hood, is a god simple [KRM](https://github.com/kubernetes/design-proposals-archive/blob/8da1442ea29adccea40693357d04727127e045ed/architecture/resource-management.md) transformation like this:
 
 Before we got only [CAPI Cluster Spec]():
 ```yaml
@@ -87,7 +87,7 @@ Above functionality use-case can be demonstrated by extending the Workflow menti
 1. Keeping your Production Pipelines DRY, everything as testable Code
 2. Avoid manual steps for credentials management through UI, cron scripts and orphaned YAML files
 3. Write end-2-end Infrastructure tests by bundling all the logic
-4. Enabler for creating trully dynamic environments
+4. Enabler for creating trully dynamic environments when using ClusterAPI and ArgoCD
 
 ## Installation
 
