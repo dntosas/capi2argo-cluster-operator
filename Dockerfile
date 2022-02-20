@@ -5,7 +5,7 @@ ARG DISTROLESS_IMAGE
 FROM "${GO_IMAGE}" as builder
 WORKDIR /capi2argo-cluster-operator
 ADD . .
-RUN make build
+RUN apk add bash git make && make build
 
 # Switch to distroless as minimal base image to package the capi2argo-cluster-operator binary
 FROM "${DISTROLESS_IMAGE}"

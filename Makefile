@@ -1,11 +1,10 @@
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 COMMIT = $(shell git log --pretty=format:'%h' -n 1)
-VERSION = "v0.1.0"
-# VERSION=$(shell git describe --tags)
+VERSION=$(shell git describe --tags)
 PROJECT = "capi2argo-cluster-operator"
 GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT}/cmd.CommitHash=${COMMIT}"
-GO_IMAGE = "golang:1.17"
+GO_IMAGE = "golang:1.17-alpine"
 GO_IMAGE_CI = "golangci/golangci-lint:v1.44.0"
 DISTROLESS_IMAGE = "gcr.io/distroless/static:nonroot"
 IMAGE_TAG_BASE ?= "ghcr.io/dntosas/${PROJECT}"
@@ -54,7 +53,7 @@ modsync: ## Run go mod tidy && vendor.
 ##@ Build
 
 .PHONY: build
-build: fmt vet ## Build capi-to-argocd-operator binary.
+build: ## Build capi-to-argocd-operator binary.
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -mod=vendor ${GOBUILD_OPTS} -o bin/${PROJECT} main.go
 
 .PHONY: run
@@ -62,7 +61,7 @@ run: ## Run the controller from your host against your current kconfig context.
 	go run -mod=vendor ./main.go
 
 .PHONY: docker-build
-docker-build: fmt vet ## Build docker image with the manager.
+docker-build: ## Build docker image with the manager.
 	docker build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg DISTROLESS_IMAGE=${DISTROLESS_IMAGE} -t ${IMAGE_TAG_BASE}:${VERSION} --no-cache .
 
 .PHONY: docker-push

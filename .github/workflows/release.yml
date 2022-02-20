@@ -22,13 +22,13 @@ jobs:
         run: |
           git fetch --tags --force
 
-      - name: Build cli binaries
-        run: make docker-build
+      - name: Build CLI binary
+        run: make build
 
       - name: Generate sha256 checksums
         run: make checksums
 
-      - name: Produce release body
+      - name: Produce Release Body
         id: git_log
         uses: beatlabs/release-changelog-action@abce8755688f63ff9334be64158b100a26a003d4 #v0.0.1
         with:
