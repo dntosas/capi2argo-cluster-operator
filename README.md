@@ -117,7 +117,7 @@ In the meantime, feel free to grab any of unimplemented bullets on the Roadmap s
 - [x] Core Functionality: Convert CAPI to Argo Clusters
 - [ ] Support for filtering Namespaces
 - [ ] Support for filtering Objects
-- [ ] Unit Tests
+- [x] Unit Tests
 - [ ] End2End Test
 - [ ] Use OwnerReferences
 - [ ] Adopt [Operator Best Practices](https://sdk.operatorframework.io/docs/best-practices/best-practices/)
