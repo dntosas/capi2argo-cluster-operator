@@ -14,7 +14,7 @@ sources:
 version: 0.1.0
 dependencies:
 - name: common
-  repository: https://charts.bitnami.com/bitnami
+  repository: 'file://../charts/common-1.11.1.tgz'
   tags:
   - bitnami-common
   version: 1.x.x
