@@ -53,7 +53,7 @@ func main() {
 	var enableDebugMode bool
 	var probeAddr string
 	var syncDuration time.Duration
-	defaultSyncDuration, _ := time.ParseDuration("20s")
+	defaultSyncDuration, _ := time.ParseDuration("45s")
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")

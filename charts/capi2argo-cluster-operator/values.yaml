@@ -1,0 +1,129 @@
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+commonLabels: {}
+commonAnnotations: {}
+
+replicaCount: 1
+
+image:
+  registry: ghcr.io
+  repository: dntosas/capi2argo-cluster-operator
+  tag: v0.1.0
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+dryRun: false
+debugMode: false
+syncDuration: 60s
+leaderElection: false
+extraArgs: {}
+extraEnvVars: []
+affinity: {}
+nodeSelector: {}
+tolerations: []
+podAnnotations: {}
+podLabels: {}
+priorityClassName: ""
+
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    http: 9443
+  externalTrafficPolicy: Cluster
+  extraPorts: []
+  annotations: {}
+  labels: {}
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: true
+
+rbac:
+  create: true
+  clusterRole: true
+  apiVersion: v1
+  pspEnabled: false
+
+containerSecurityContext: {}
+podSecurityContext:
+  enabled: true
+  fsGroup: 1001
+  runAsUser: 1001
+
+resources:
+  limits:
+     cpu: 50m
+     memory: 50Mi
+  requests:
+     cpu: 10m
+     memory: 50Mi
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 2
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+podDisruptionBudget: {}
+
+metrics:
+  enabled: false
+  podAnnotations: {}
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: ""
+    scrapeTimeout: ""
+    selector: {}
+    metricRelabelings: []
+    relabelings: []
+    honorLabels: false
+    additionalLabels: {}
+    jobLabel: ""
+
+extraDeploy: []
+kubeVersion: ""
+extraEnvVarsSecret: ""
+lifecycleHooks: {}
+schedulerName: ""
+topologySpreadConstraints: []
+podAffinityPreset: ""
+podAntiAffinityPreset: soft
+nodeAffinityPreset:
+  type: ""
+  key: ""
+  values: []
+hostAliases: []
+updateStrategy: {}
+command: []
+args: []
+initContainers: []
+sidecars: []
+allowedNamespaces: ""
+containerPorts:
+  http: 9443
