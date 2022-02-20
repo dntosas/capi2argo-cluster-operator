@@ -8,7 +8,7 @@ GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT
 GO_IMAGE = "golang:1.17"
 GO_IMAGE_CI = "golangci/golangci-lint:v1.44.0"
 DISTROLESS_IMAGE = "gcr.io/distroless/static:nonroot"
-IMAGE_TAG_BASE ?= dntosas/${PROJECT}
+IMAGE_TAG_BASE ?= "ghcr.io/dntosas/${PROJECT}"
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
@@ -62,7 +62,7 @@ run: ## Run the controller from your host against your current kconfig context.
 	go run -mod=vendor ./main.go
 
 .PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
+docker-build: fmt vet ## Build docker image with the manager.
 	docker build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg DISTROLESS_IMAGE=${DISTROLESS_IMAGE} -t ${IMAGE_TAG_BASE}:${VERSION} --no-cache .
 
 .PHONY: docker-push
@@ -70,7 +70,7 @@ docker-push: ## Push docker image with the manager.
 	docker push ${IMAGE_TAG_BASE}:${VERSION}
 
 checksums:
-	sha256sum ${PROJECT} > ${PROJECT}.sha256
+	sha256sum bin/${PROJECT} > bin/${PROJECT}.sha256
 
 ##@ Deployment
 
