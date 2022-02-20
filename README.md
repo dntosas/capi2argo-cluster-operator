@@ -93,7 +93,12 @@ Above functionality use-case can be demonstrated by extending the Workflow menti
 
 ## Installation
 
-TODO: Helm Chart, local Kind deployment
+**Helm**
+
+```console
+$ helm repo add capi2argo https://dntosas.github.com/capi-2-argo-cluster-operator
+$ helm upgrade -i capi2argo capi2argo/capi2argo-cluster-operator
+```
 
 ## Development
 
@@ -118,10 +123,10 @@ In the meantime, feel free to grab any of unimplemented bullets on the Roadmap s
 - [ ] Support for filtering Namespaces
 - [ ] Support for filtering Objects
 - [x] Unit Tests
-- [ ] End2End Test
+- [x] Integration Tests
 - [ ] Use OwnerReferences
 - [ ] Adopt [Operator Best Practices](https://sdk.operatorframework.io/docs/best-practices/best-practices/)
-- [ ] Garbage collection
+- [ ] Garbage Collection
 - [ ] Quickstart Deployment (Kind Cluster)
-- [ ] Helm Chart Deployment
-- [ ] FAQ and Docs
+- [x] Helm Chart Deployment
+- [x] FAQ and Docs

@@ -1,0 +1,10 @@
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+APP VERSION: {{ .Chart.AppVersion }}
+
+** Please be patient while the chart is being deployed **
+
+To verify that capi2argo-cluster-operator has started, run:
+
+  kubectl --namespace={{ .Release.Namespace }} get pods -l "app.kubernetes.io/name={{ template "capi2argo-cluster-operator.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
