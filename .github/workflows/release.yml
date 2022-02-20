@@ -22,7 +22,7 @@ jobs:
         run: |
           git fetch --tags --force
 
-      - name: Build CLI binary
+      - name: Build CLI binary and Docker image
         run: make build
 
       - name: Generate sha256 checksums
@@ -55,14 +55,17 @@ jobs:
           tags: |
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
 
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v2.6.1
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
         with:
-          context: .
-          file: .//Dockerfile
           registry: ghcr.io
-          username: "dntosas"
-          password: ${{ secrets.GH_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v2.9.0
+        with:
+          registry: ghcr.io
           repository: dntosas/capi2argo-cluster-operator
           tags: |
             ${{ steps.meta.outputs.tags }}

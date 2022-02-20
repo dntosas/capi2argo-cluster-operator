@@ -61,7 +61,7 @@ run: ## Run the controller from your host against your current kconfig context.
 	go run -mod=vendor ./main.go
 
 .PHONY: docker-build
-docker-build: ## Build docker image with the manager.
+docker-build: build ## Build docker image with the manager.
 	docker build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg DISTROLESS_IMAGE=${DISTROLESS_IMAGE} -t ${IMAGE_TAG_BASE}:${VERSION} --no-cache .
 
 .PHONY: docker-push
