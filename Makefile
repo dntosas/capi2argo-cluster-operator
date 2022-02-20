@@ -41,8 +41,8 @@ lint: ## Run golangci-lint against code.
 	golangci-lint run --enable revive,bodyclose,gofmt,exportloopref --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
 
 .PHONY: test
-test: ## Run go tests against code.
-	go test -v -mod=vendor `go list ./...` -coverprofile cover.out
+test: envtest ## Run go tests against code.
+		KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v -mod=vendor `go list ./...` -coverprofile cover.out
 
 .PHONY: ci
 ci: fmt vet lint test ## Run go fmt/vet/lint/tests against the code.

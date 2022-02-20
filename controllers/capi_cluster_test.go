@@ -9,18 +9,24 @@ import (
 	"time"
 )
 
+var (
+	validMock = true
+	validType = true
+	validKey  = true
+	name      = "test"
+	namespace = "test"
+)
+
 func TestUnmarshal(t *testing.T) {
 	t.Parallel()
-	validMock := true
-	validType := true
-	validKey := true
+
 	tests := []struct {
 		testName           string
 		testMock           *corev1.Secret
 		testExpectedError  bool
 		testExpectedValues map[string]string
 	}{
-		{"test type with valid fields", MockCapiSecret(validMock, validType, validKey), false,
+		{"test type with valid fields", MockCapiSecret(validMock, validType, validKey, name, namespace), false,
 			map[string]string{
 				"Kind":        "Config",
 				"APIVersion":  "v1",
@@ -31,12 +37,12 @@ func TestUnmarshal(t *testing.T) {
 				"Server":      "https://kube-cluster-test.domain.com:6443",
 			},
 		},
-		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey), true,
+		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey, name, namespace), true,
 			map[string]string{
 				"ErrorMsg": "wrong secret key",
 			},
 		},
-		{"test type with wrong secret.Type", MockCapiSecret(validMock, !validType, validKey), true,
+		{"test type with wrong secret.Type", MockCapiSecret(validMock, !validType, validKey, name, namespace), true,
 			map[string]string{
 				"ErrorMsg": "wrong secret type",
 			},
@@ -85,22 +91,19 @@ func TestNewCapiCluster(t *testing.T) {
 
 func TestValidateCapiSecret(t *testing.T) {
 	t.Parallel()
-	validMock := true
-	validType := true
-	validKey := true
 	tests := []struct {
 		testName           string
 		testMock           *corev1.Secret
 		testExpectedError  bool
 		testExpectedValues map[string]string
 	}{
-		{"test type with valid fields", MockCapiSecret(validMock, validType, validKey), false, nil},
-		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey), true,
+		{"test type with valid fields", MockCapiSecret(validMock, validType, validKey, name, namespace), false, nil},
+		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey, name, namespace), true,
 			map[string]string{
 				"ErrorMsg": "wrong secret key",
 			},
 		},
-		{"test type with wrong secret.Type", MockCapiSecret(validMock, !validType, validKey), true,
+		{"test type with wrong secret.Type", MockCapiSecret(validMock, !validType, validKey, name, namespace), true,
 			map[string]string{
 				"ErrorMsg": "wrong secret type",
 			},

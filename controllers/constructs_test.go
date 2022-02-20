@@ -19,7 +19,7 @@ func MockCapiCluster() string {
 	return b64.StdEncoding.EncodeToString(RawCapiCluster)
 }
 
-func MockCapiSecret(validMock bool, validType bool, validKey bool) *corev1.Secret {
+func MockCapiSecret(validMock bool, validType bool, validKey bool, name string, namespace string) *corev1.Secret {
 	// If validMock=true, return type with proper b64 encoded values
 	var v []byte
 	if validMock {
@@ -52,8 +52,8 @@ func MockCapiSecret(validMock bool, validType bool, validKey bool) *corev1.Secre
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-kubeconfig",
-			Namespace: "test-namespace",
+			Name:      name,
+			Namespace: namespace,
 			Labels:    GetArgoLabels(),
 		},
 		Data: map[string][]byte{
@@ -88,6 +88,12 @@ func MockArgoCluster(validMock bool) *ArgoCluster {
 	}
 
 	return a
+}
+
+func MockArgoSecret() *corev1.Secret {
+	a := MockArgoCluster(true)
+	s, _ := a.ConvertToSecret()
+	return s
 }
 
 // IsBase64 returns true if given value is valid b64-encoded stream
