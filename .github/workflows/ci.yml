@@ -36,3 +36,14 @@ jobs:
 
       - name: Run go test
         run: make test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          env_vars: GO
+          fail_ci_if_error: true
+          files: ./cover.out
+          flags: unittests
+          name: codecov-umbrella
+          verbose: true

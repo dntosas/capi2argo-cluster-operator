@@ -111,7 +111,7 @@ Return the capi2argo-cluster-operator service account name
 {{- end -}}
 
 {{/*
-Return the capi2argo-cluster-operator namespace to be used
+Return the capi2argo-cluster-operator namespace to use
 */}}
 {{- define "capi2argo-cluster-operator.namespace" -}}
 {{- if and .Values.rbac.create (not .Values.rbac.clusterRole) -}}
