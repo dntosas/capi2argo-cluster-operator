@@ -1,6 +1,6 @@
 # Capi2Argo Cluster Operator
 
-[![CI](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml) | [![Go Report](https://goreportcard.com/badge/github.com/dntosas/capi2argo-cluster-operator)](https://goreportcard.com/badge/github.com/dntosas/capi2argo-cluster-operator)
+[![CI](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml) | [![Go Report](https://goreportcard.com/badge/github.com/dntosas/capi2argo-cluster-operator)](https://goreportcard.com/badge/github.com/dntosas/capi2argo-cluster-operator) | [![Go Release](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/go-release.yml/badge.svg)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/go-release.yml) | [![Helm Chart Release](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/helm-release.yml/badge.svg)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/helm-release.yml)
 
 Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into ArgoCD Cluster definitions and keep them synchronized. It aims to act as an integration bridge and solve an automation gap for users that combine these tools to provision Kubernetes Clusters.
 
