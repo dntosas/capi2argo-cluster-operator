@@ -15,11 +15,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Run golangci-lint
+      - name: Run go fmt
+        run: make fmt
+
+      - name: Run go vet
+        run: make vet
+
+      - name: Run go lint
         uses: golangci/golangci-lint-action@v2.5.2
         with:
           version: v1.44.0
           args: --timeout 5m --enable revive,bodyclose,gofmt,exportloopref --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
 
       - name: Run go test
-        run: make ci
+        run: make test
