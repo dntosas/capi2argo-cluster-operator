@@ -68,10 +68,10 @@ spec:
           {{- else }}
           args:
             {{- if .Values.syncDuration }}
-            - --sync-duration={{ .Values.logLevel }}
+            - --sync-duration={{ .Values.syncDuration }}
             {{- end }}
             {{- if .Values.debugMode }}
-            - --debug={{ .Values.logFormat }}
+            - --debug
             {{- end }}
             {{- if .Values.dryRun }}
             - --dry-run
@@ -98,7 +98,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: http
+              port: 8081
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
@@ -111,7 +111,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /readyz
-              port: http
+              port: 8081
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}

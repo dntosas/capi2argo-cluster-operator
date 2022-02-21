@@ -3,7 +3,7 @@ global:
   imagePullSecrets: []
 
 nameOverride: ""
-fullnameOverride: ""
+fullnameOverride: "capi2argo-operator"
 commonLabels: {}
 commonAnnotations: {}
 

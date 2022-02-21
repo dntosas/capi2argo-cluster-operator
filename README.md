@@ -96,7 +96,7 @@ Above functionality use-case can be demonstrated by extending the Workflow menti
 **Helm**
 
 ```console
-$ helm repo add capi2argo https://dntosas.github.com/capi-2-argo-cluster-operator
+$ helm repo add capi2argo https://dntosas.github.io/capi2argo-cluster-operator/
 $ helm upgrade -i capi2argo capi2argo/capi2argo-cluster-operator
 ```
 
@@ -120,13 +120,16 @@ In the meantime, feel free to grab any of unimplemented bullets on the Roadmap s
 ### v0.1.0
 
 - [x] Core Functionality: Convert CAPI to Argo Clusters
-- [ ] Support for filtering Namespaces
-- [ ] Support for filtering Objects
 - [x] Unit Tests
 - [x] Integration Tests
+- [x] Helm Chart Deployment
+- [x] FAQ and Docs
+
+### v0.2.0
+
 - [ ] Use OwnerReferences
 - [ ] Adopt [Operator Best Practices](https://sdk.operatorframework.io/docs/best-practices/best-practices/)
 - [ ] Garbage Collection
 - [ ] Quickstart Deployment (Kind Cluster)
-- [x] Helm Chart Deployment
-- [x] FAQ and Docs
+- [ ] Support for filtering Namespaces
+- [ ] Support for filtering Objects

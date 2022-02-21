@@ -12,4 +12,12 @@ rules:
       - namespaces
     verbs:
       - '*'
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - 'get'
+      - 'list'
+      - 'watch'
 {{- end }}
