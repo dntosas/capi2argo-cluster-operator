@@ -22,13 +22,14 @@ So.. we have CAPI that enables us to define Clusters as native k8s objects and A
 3. CAPI reconciles on these definitions
 4. CAPI provisions these Clusters on Cloud Provider
 5. CAPI returns provisioned Cluster information as k8s Secrets
+6. :x: Argo is not aware of remote Clusters plus cannot authenticate to provision additional resources
 
 Ok, all good until here. But having bare naked k8s clusters is not something useful. Probably dozens of utils and addons are needed for a cluster to look handy (eg. CSI Drivers, Ingress Controllers, Monitoring, etc).
 
 Argo can also take care of deploying these utils but eventually credentials will be essential to authenticate against target clusters. Of course, we can proceed with the following three manual steps to solve that:
 
 - Read CAPI credentials
-- Translate it to Argo type
+- Translate them to Argo types
 - Create new Argo credentials
 
 But how can we automate this? Capi2Argo Cluster Operator was created so it can take care of above actions.
@@ -62,7 +63,7 @@ metadata:
   namespace: argocd
 stringData:
   name: CAPICluster
-  server: CAPICluster Host
+  server: CAPIClusterHost
   config: |
     {
       "tlsClientConfig": {
@@ -79,7 +80,7 @@ Above functionality use-case can be demonstrated by extending the Workflow menti
 7. CACO converts them to Argo Clusters
 8. CACO creates them as Argo Clusters
 9. Argo reads these new Clusters
-10. Argo provisions resources to CAPI Workload Clusters
+10. :heavy_check_mark: Argo provisions resources to CAPI Workload Clusters
 
 ![flow-with-capi2argo](docs/flow-with-operator.png)
 
@@ -97,8 +98,11 @@ Above functionality use-case can be demonstrated by extending the Workflow menti
 
 ```console
 $ helm repo add capi2argo https://dntosas.github.io/capi2argo-cluster-operator/
+$ helm repo update
 $ helm upgrade -i capi2argo capi2argo/capi2argo-cluster-operator
 ```
+
+Check additional values configuration in [chart readme file](./charts/capi2argo-cluster-operator/README.md).
 
 ## Development
 
