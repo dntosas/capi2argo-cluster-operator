@@ -30,7 +30,7 @@ jobs:
 
       - name: Produce Release Body
         id: git_log
-        uses: beatlabs/release-changelog-action@7ed0cbd206d9098871e3f106f62ee95bd82e28ba #v0.0.1
+        uses: beatlabs/release-changelog-action@64cc16a4cca8ccf9672c9383cc9234c675a5acbe #v0.0.1
         with:
           tag_regex: "v[0-9]+.[0-9]+.[0-9]+"
 
