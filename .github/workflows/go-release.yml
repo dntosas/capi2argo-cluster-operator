@@ -112,6 +112,6 @@ jobs:
             -a "repo=${{ github.repository }}" \
             -a "workflow=${{ github.workflow }}" \
             -a "ref=${{ github.sha }}" \
-            ghcr.io/dntosas/capi2argo-cluster-operator:${{ steps.meta.outputs.tags }}
+            ghcr.io/dntosas/capi2argo-cluster-operator:${{ github.event.release.tag_name }}
         env:
           COSIGN_PASSWORD: ""
