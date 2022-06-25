@@ -95,4 +95,23 @@ jobs:
           asset_name: capi2argo-cluster-operator.sha256
           asset_content_type: text/plain
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v2.4.0
+        with:
+          cosign-release: 'v1.9.0'
 
+      - name: Write signing key to disk
+        run: 'echo "$KEY" > cosign.key'
+        shell: bash
+        env:
+          KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+
+      - name: Sign container image with annotations from our environment
+        run: |
+          cosign sign --key cosign.key \
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.sha }}" \
+            ghcr.io/dntosas/capi2argo-cluster-operator:${{ steps.meta.outputs.tags }}
+        env:
+          COSIGN_PASSWORD: ""
