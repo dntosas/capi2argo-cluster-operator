@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.1.3
+appVersion: 0.1.4
 description: Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into ArgoCD Cluster definitions and keep them synchronized.
 home: https://github.com/dntosas/capi2argo-cluster-operator
 keywords:
@@ -11,7 +11,7 @@ maintainers:
 name: capi2argo-cluster-operator
 sources:
 - https://github.com/dntosas/capi2argo-cluster-operator
-version: 0.1.3
+version: 0.1.4
 dependencies:
 - name: common
   repository: "https://charts.bitnami.com/bitnami"
