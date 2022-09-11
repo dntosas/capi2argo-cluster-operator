@@ -2,6 +2,8 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 COMMIT = $(shell git log --pretty=format:'%h' -n 1)
 VERSION=$(shell git describe --tags)
+USER = $(shell id -u)
+GROUP = $(shell id -g)
 PROJECT = "capi2argo-cluster-operator"
 GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT}/cmd.CommitHash=${COMMIT}"
 GO_IMAGE = "golang:1.19-alpine"
@@ -49,6 +51,10 @@ ci: fmt vet lint test ## Run go fmt/vet/lint/tests against the code.
 .PHONY: modsync
 modsync: ## Run go mod tidy && vendor.
 	go mod tidy && go mod vendor
+
+.PHONY: helm-docs
+helm-docs:
+	docker run --rm --volume "${PWD}/charts/capi2argo-cluster-operator:/helm-docs" -u ${USER} "jnorwood/helm-docs:v1.11.0"
 
 ##@ Build
 
