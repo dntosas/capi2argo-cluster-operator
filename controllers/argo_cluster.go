@@ -1,3 +1,5 @@
+// Package controllers implements functions for manipulating CAPI generated
+// cluster secrets into Argo definitions.
 package controllers
 
 import (

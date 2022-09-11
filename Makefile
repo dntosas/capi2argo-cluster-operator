@@ -4,13 +4,13 @@ COMMIT = $(shell git log --pretty=format:'%h' -n 1)
 VERSION=$(shell git describe --tags)
 PROJECT = "capi2argo-cluster-operator"
 GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT}/cmd.CommitHash=${COMMIT}"
-GO_IMAGE = "golang:1.18-alpine"
-GO_IMAGE_CI = "golangci/golangci-lint:v1.46.2"
+GO_IMAGE = "golang:1.19-alpine"
+GO_IMAGE_CI = "golangci/golangci-lint:v1.49.0"
 DISTROLESS_IMAGE = "gcr.io/distroless/static:nonroot"
 IMAGE_TAG_BASE ?= "ghcr.io/dntosas/${PROJECT}"
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.24.1
+ENVTEST_K8S_VERSION = 1.25.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -88,8 +88,8 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
-CONTROLLER_TOOLS_VERSION ?= v0.9.0
+KUSTOMIZE_VERSION ?= v4.5.7
+CONTROLLER_TOOLS_VERSION ?= v0.9.2
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
