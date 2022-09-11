@@ -2,16 +2,16 @@ package controllers
 
 import (
 	b64 "encoding/base64"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
+	"os"
 )
 
 // MockCapiCluster returns a based64-encoded string that
 // represents a valid CapiCluster definition.
 func MockCapiCluster() string {
-	RawCapiCluster, err := ioutil.ReadFile("../tests/capi-cluster.yaml")
+	RawCapiCluster, err := os.ReadFile("../tests/capi-cluster.yaml")
 	if err != nil {
 		log.Fatal(err)
 	}
