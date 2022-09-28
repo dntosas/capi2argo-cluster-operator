@@ -2,10 +2,11 @@ package controllers
 
 import (
 	b64 "encoding/base64"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
-	"testing"
 )
 
 func TestConvertToSecret(t *testing.T) {
@@ -86,18 +87,26 @@ func TestValidateClusterTLSConfig(t *testing.T) {
 func TestBuildNamespacedName(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		testName           string
-		testMock           string
-		testExpectedError  bool
-		testExpectedValues types.NamespacedName
+		testName                  string
+		testMock                  string
+		testNamespace             string
+		testEnableNamespacedNames bool
+		testExpectedError         bool
+		testExpectedValues        types.NamespacedName
 	}{
-		{"test type with valid fields", "test-XXX-kubeconfig", false,
+		{"test type with valid fields", "test-XXX-kubeconfig", "test-ns", false, false,
 			types.NamespacedName{
 				Name:      "cluster-test-XXX",
 				Namespace: ArgoNamespace,
 			},
 		},
-		{"test type with non-valid fields", "capi-XXX", false,
+		{"test type with valid fields and namespaced names", "test-XXX-kubeconfig", "test-ns", true, false,
+			types.NamespacedName{
+				Name:      "cluster-test-ns-test-XXX",
+				Namespace: ArgoNamespace,
+			},
+		},
+		{"test type with non-valid fields", "capi-XXX", "test-ns", false, false,
 			types.NamespacedName{
 				Name:      "cluster-capi-XXX",
 				Namespace: ArgoNamespace,
@@ -107,8 +116,10 @@ func TestBuildNamespacedName(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
-			t.Parallel()
-			s := BuildNamespacedName(tt.testMock)
+			oldConf := EnableNamespacedNames
+			EnableNamespacedNames = tt.testEnableNamespacedNames
+			s := BuildNamespacedName(tt.testMock, tt.testNamespace)
+			EnableNamespacedNames = oldConf
 			if !tt.testExpectedError {
 				assert.NotNil(t, s)
 				assert.Equal(t, tt.testExpectedValues.Name, s.Name)
