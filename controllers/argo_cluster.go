@@ -6,15 +6,20 @@ import (
 	b64 "encoding/base64"
 	"encoding/json"
 	"errors"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"strings"
 )
 
 var (
 	// ArgoNamespace represents the Namespace that hold ArgoCluster secrets.
 	ArgoNamespace string
+
+	// EnableNamespacedNames represents a mode where the cluster name is always
+	// prepended by the cluster namespace in all generated secrets
+	EnableNamespacedNames bool
 )
 
 // GetArgoLabels holds a map of labels that reconciled objects must have.
@@ -48,8 +53,8 @@ type ArgoTLS struct {
 // NewArgoCluster return a new ArgoCluster
 func NewArgoCluster(c *CapiCluster, s *corev1.Secret) *ArgoCluster {
 	return &ArgoCluster{
-		NamespacedName: BuildNamespacedName(s.ObjectMeta.Name),
-		ClusterName:    c.Clusters[0].Name,
+		NamespacedName: BuildNamespacedName(s.ObjectMeta.Name, s.ObjectMeta.Namespace),
+		ClusterName:    BuildClusterName(c.Clusters[0].Name, s.ObjectMeta.Namespace),
 		ClusterServer:  c.Clusters[0].Cluster.Server,
 		ClusterConfig: ArgoConfig{
 			TLSClientConfig: ArgoTLS{
@@ -62,11 +67,19 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret) *ArgoCluster {
 }
 
 // BuildNamespacedName returns k8s native object identifier.
-func BuildNamespacedName(s string) types.NamespacedName {
+func BuildNamespacedName(s string, namespace string) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      "cluster-" + strings.TrimSuffix(s, "-kubeconfig"),
+		Name:      "cluster-" + BuildClusterName(strings.TrimSuffix(s, "-kubeconfig"), namespace),
 		Namespace: ArgoNamespace,
 	}
+}
+
+func BuildClusterName(s string, namespace string) string {
+	prefix := ""
+	if EnableNamespacedNames {
+		prefix += namespace + "-"
+	}
+	return prefix + s
 }
 
 // ConvertToSecret converts an ArgoCluster into k8s native secret object.

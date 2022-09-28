@@ -2,10 +2,11 @@ package controllers
 
 import (
 	b64 "encoding/base64"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"os"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MockCapiCluster returns a based64-encoded string that
@@ -75,7 +76,7 @@ func MockArgoCluster(validMock bool) *ArgoCluster {
 	}
 
 	a := &ArgoCluster{
-		NamespacedName: BuildNamespacedName("test"),
+		NamespacedName: BuildNamespacedName("test", "test"),
 		ClusterName:    "test",
 		ClusterServer:  "server",
 		ClusterConfig: ArgoConfig{

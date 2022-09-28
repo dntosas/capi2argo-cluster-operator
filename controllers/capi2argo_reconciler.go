@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +21,8 @@ func init() {
 	if ArgoNamespace == "" {
 		ArgoNamespace = "argocd"
 	}
+
+	EnableNamespacedNames, _ = strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
 }
 
 // Capi2Argo reconciles a Secret object
