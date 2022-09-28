@@ -1,6 +1,6 @@
 # capi2argo-cluster-operator
 
-![Version: 0.1.5](https://img.shields.io/badge/Version-0.1.5-informational?style=flat-square) ![AppVersion: 0.1.5](https://img.shields.io/badge/AppVersion-0.1.5-informational?style=flat-square)
+![Version: 0.1.6](https://img.shields.io/badge/Version-0.1.6-informational?style=flat-square) ![AppVersion: 0.1.6](https://img.shields.io/badge/AppVersion-0.1.6-informational?style=flat-square)
 
 Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into ArgoCD Cluster definitions and keep them synchronized.
 
@@ -48,7 +48,7 @@ Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into
 | image.pullSecrets | list | `[]` |  |
 | image.registry | string | `"ghcr.io"` |  |
 | image.repository | string | `"dntosas/capi2argo-cluster-operator"` |  |
-| image.tag | string | `"v0.1.5"` |  |
+| image.tag | string | `"v0.1.6"` |  |
 | initContainers | list | `[]` |  |
 | kubeVersion | string | `""` |  |
 | leaderElection | bool | `false` |  |
