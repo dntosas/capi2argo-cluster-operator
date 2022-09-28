@@ -74,6 +74,7 @@ func BuildNamespacedName(s string, namespace string) types.NamespacedName {
 	}
 }
 
+// BuildClusterName returns cluster name after transformations applied (with/without namespace suffix, etc).
 func BuildClusterName(s string, namespace string) string {
 	prefix := ""
 	if EnableNamespacedNames {
