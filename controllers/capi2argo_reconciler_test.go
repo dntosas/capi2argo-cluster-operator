@@ -136,6 +136,22 @@ func TestReconcile(t *testing.T) {
 	})
 }
 
+func TestValidateObjectOwner(t *testing.T) {
+	var o corev1.Secret
+
+	o.ObjectMeta.Labels = map[string]string{
+		"capi-to-argocd/owned": "true",
+	}
+	err := ValidateObjectOwner(o)
+	assert.Nil(t, err)
+
+	o.ObjectMeta.Labels = map[string]string{
+		"capi-to-argocd/owned": "false",
+	}
+	err = ValidateObjectOwner(o)
+	assert.NotNil(t, err)
+}
+
 func MockReconcileReq(name string, namespace string) reconcile.Request {
 	r := reconcile.Request{
 		NamespacedName: types.NamespacedName{

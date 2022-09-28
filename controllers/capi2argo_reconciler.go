@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	goErr "errors"
 	"os"
 	"strconv"
 
@@ -114,8 +115,10 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		return ctrl.Result{}, nil
 
 	case true:
+
 		log.Info("Checking if ArgoSecret is managed by the Controller")
-		if existingSecret.ObjectMeta.Labels["capi-to-argocd/owned"] != "true" {
+		err := ValidateObjectOwner(existingSecret)
+		if err != nil {
 			log.Info("Not managed by Controller, skipping..")
 			return ctrl.Result{}, nil
 		}
@@ -143,7 +146,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 				log.Error(err, "Failed to update ArgoSecret")
 				return ctrl.Result{}, err
 			}
-			log.Info("Updated sunnessfully of ArgoSecret")
+			log.Info("Updated successfully of ArgoSecret")
 			return ctrl.Result{}, nil
 		}
 
@@ -158,3 +161,12 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 func (r *Capi2Argo) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).For(&corev1.Secret{}).Complete(r)
 }
+
+// ValidateObjectOwner checks whether reconciled object is managed by CACO or not.
+func ValidateObjectOwner(s corev1.Secret) error {
+	if s.ObjectMeta.Labels["capi-to-argocd/owned"] != "true" {
+		return goErr.New("not owned by CACO")
+	}
+	return nil
+}
+
