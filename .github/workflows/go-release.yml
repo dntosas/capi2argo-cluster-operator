@@ -96,7 +96,7 @@ jobs:
           asset_content_type: text/plain
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v2.8.0
+        uses: sigstore/cosign-installer@v2.8.1
         with:
           cosign-release: 'v1.9.0'
 
