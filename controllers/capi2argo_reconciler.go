@@ -169,4 +169,3 @@ func ValidateObjectOwner(s corev1.Secret) error {
 	}
 	return nil
 }
-
