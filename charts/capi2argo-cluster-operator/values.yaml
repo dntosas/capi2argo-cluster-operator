@@ -49,7 +49,6 @@ rbac:
   create: true
   clusterRole: true
   apiVersion: v1
-  pspEnabled: false
 
 containerSecurityContext: {}
 podSecurityContext:
