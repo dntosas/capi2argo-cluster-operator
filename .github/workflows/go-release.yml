@@ -64,7 +64,7 @@ jobs:
           logout: false
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v3.2.0
+        uses: docker/build-push-action@v3.3.0
         with:
           context: .
           file: .//Dockerfile
