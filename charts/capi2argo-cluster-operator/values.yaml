@@ -12,9 +12,11 @@ replicaCount: 1
 image:
   registry: ghcr.io
   repository: dntosas/capi2argo-cluster-operator
-  tag: v0.1.8
+  tag: v0.1.9
   pullPolicy: IfNotPresent
   pullSecrets: []
+
+argoCDNamespace: "argocd"
 
 dryRun: false
 debugMode: false
