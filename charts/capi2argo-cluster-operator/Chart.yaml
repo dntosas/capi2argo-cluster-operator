@@ -11,7 +11,7 @@ maintainers:
 name: capi2argo-cluster-operator
 sources:
 - https://github.com/dntosas/capi2argo-cluster-operator
-version: 0.1.9
+version: 0.1.10
 dependencies:
 - name: common
   repository: "https://charts.bitnami.com/bitnami"
