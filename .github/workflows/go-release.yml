@@ -15,7 +15,7 @@ jobs:
           go-version: '1.20.1'
 
       - name: Checkout code
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v3.4.0
 
       - name: "Extract data from tag: version, message, body"
         id: tag
