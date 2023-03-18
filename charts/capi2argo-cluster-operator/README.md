@@ -1,6 +1,6 @@
 # capi2argo-cluster-operator
 
-![Version: 0.1.7](https://img.shields.io/badge/Version-0.1.7-informational?style=flat-square) ![AppVersion: 0.1.7](https://img.shields.io/badge/AppVersion-0.1.7-informational?style=flat-square)
+![Version: 0.1.11](https://img.shields.io/badge/Version-0.1.11-informational?style=flat-square) ![AppVersion: 0.1.11](https://img.shields.io/badge/AppVersion-0.1.11-informational?style=flat-square)
 
 Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into ArgoCD Cluster definitions and keep them synchronized.
 
@@ -20,7 +20,7 @@ Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://charts.bitnami.com/bitnami | common | 1.x.x |
+| https://charts.bitnami.com/bitnami | common | 2.x.x |
 
 ## Values
 
@@ -28,6 +28,7 @@ Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
 | allowedNamespaces | string | `""` |  |
+| argoCDNamespace | string | `"argocd"` |  |
 | args | list | `[]` |  |
 | command | list | `[]` |  |
 | commonAnnotations | object | `{}` |  |
@@ -48,7 +49,7 @@ Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into
 | image.pullSecrets | list | `[]` |  |
 | image.registry | string | `"ghcr.io"` |  |
 | image.repository | string | `"dntosas/capi2argo-cluster-operator"` |  |
-| image.tag | string | `"v0.1.7"` |  |
+| image.tag | string | `"v0.1.11"` |  |
 | initContainers | list | `[]` |  |
 | kubeVersion | string | `""` |  |
 | leaderElection | bool | `false` |  |
@@ -88,7 +89,6 @@ Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into
 | rbac.apiVersion | string | `"v1"` |  |
 | rbac.clusterRole | bool | `true` |  |
 | rbac.create | bool | `true` |  |
-| rbac.pspEnabled | bool | `false` |  |
 | readinessProbe.enabled | bool | `true` |  |
 | readinessProbe.failureThreshold | int | `6` |  |
 | readinessProbe.initialDelaySeconds | int | `5` |  |

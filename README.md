@@ -136,4 +136,4 @@ In the meantime, feel free to grab any of unimplemented bullets on the Roadmap s
 - [ ] Garbage Collection
 - [ ] Quickstart Deployment (Kind Cluster)
 - [ ] Support for filtering Namespaces
-- [ ] Support for filtering Objects
+- [x] Support for multi-arch Docker images (amd64/arm64)
