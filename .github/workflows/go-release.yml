@@ -16,44 +16,11 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v3.4.0
-
-      - name: "Extract data from tag: version, message, body"
-        id: tag
-        run: |
-          git fetch --tags --force
-
-      - name: Build CLI binary and Docker image
-        run: make build
-
-      - name: Generate sha256 checksums
-        run: make checksums
-
-      - name: Produce Release Body
-        id: git_log
-        uses: beatlabs/release-changelog-action@64cc16a4cca8ccf9672c9383cc9234c675a5acbe #v0.0.1
         with:
-          tag_regex: "v[0-9]+.[0-9]+.[0-9]+"
+          fetch-depth: 0
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1.1.4
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          body: ${{ steps.git_log.outputs.release_body }}
-          draft: false
-          prerelease: false
-
-      - name: Docker Metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            ghcr.io/dntosas/capi2argo-cluster-operator
-          tags: |
-            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -63,55 +30,31 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           logout: false
 
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v4.0.0
-        with:
-          context: .
-          file: .//Dockerfile
-          tags: |
-            ${{ steps.meta.outputs.tags }}
-          pull: true
-          push: true
-
-      - name: Upload Release Asset Linux
-        id: upload-release-asset-linux
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./bin/capi2argo-cluster-operator
-          asset_name: capi2argo-cluster-operator
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Asset Linux checksum
-        id: upload-release-asset-linux-checksum
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./bin/capi2argo-cluster-operator.sha256
-          asset_name: capi2argo-cluster-operator.sha256
-          asset_content_type: text/plain
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v2.8.1
         with:
-          cosign-release: 'v1.9.0'
+          cosign-release: 'v2.0.0'
 
-      - name: Write signing key to disk
+      - name: Write Cosign signing key to disk
         run: 'echo "$KEY" > cosign.key'
         shell: bash
         env:
           KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
 
-      - name: Sign container image with annotations from our environment
-        run: |
-          cosign sign --key cosign.key \
-            -a "repo=${{ github.repository }}" \
-            -a "workflow=${{ github.workflow }}" \
-            -a "ref=${{ github.sha }}" \
-            ghcr.io/dntosas/capi2argo-cluster-operator:${{ github.event.release.tag_name }}
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          args: release --clean --config .github/config/goreleaser.yaml
         env:
-          COSIGN_PASSWORD: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PRIVATE_KEY }}
+
+      # - name: Sign container image with annotations from our environment
+      #   run: |
+      #     cosign sign --key cosign.key \
+      #       -a "repo=${{ github.repository }}" \
+      #       -a "workflow=${{ github.workflow }}" \
+      #       -a "ref=${{ github.sha }}" \
+      #       ghcr.io/dntosas/capi2argo-cluster-operator:${{ github.event.release.tag_name }}
+      #   env:
+      #     COSIGN_PASSWORD: ""
