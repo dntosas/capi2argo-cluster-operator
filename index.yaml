@@ -2,6 +2,31 @@ apiVersion: v1
 entries:
   capi2argo-cluster-operator:
   - apiVersion: v2
+    appVersion: 0.1.11
+    created: "2023-03-18T12:37:00.322119193Z"
+    dependencies:
+    - name: common
+      repository: https://charts.bitnami.com/bitnami
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    description: Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials
+      into ArgoCD Cluster definitions and keep them synchronized.
+    digest: f8b39306413a9c04444492ec87580da7714eb5f937fef999a9ab521d7f40afbc
+    home: https://github.com/dntosas/capi2argo-cluster-operator
+    keywords:
+    - cluster-api
+    - argocd
+    - kubernetes
+    maintainers:
+    - name: Jim Ntosas
+    name: capi2argo-cluster-operator
+    sources:
+    - https://github.com/dntosas/capi2argo-cluster-operator
+    urls:
+    - https://github.com/dntosas/capi2argo-cluster-operator/releases/download/capi2argo-cluster-operator-0.1.11/capi2argo-cluster-operator-0.1.11.tgz
+    version: 0.1.11
+  - apiVersion: v2
     appVersion: 0.1.9
     created: "2023-02-26T20:32:59.003725748Z"
     dependencies:
@@ -226,4 +251,4 @@ entries:
     urls:
     - https://github.com/dntosas/capi2argo-cluster-operator/releases/download/capi2argo-cluster-operator-0.1.0/capi2argo-cluster-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2023-02-26T20:32:59.003756148Z"
+generated: "2023-03-18T12:37:00.322169693Z"
