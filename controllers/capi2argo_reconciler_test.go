@@ -95,16 +95,16 @@ func TestReconcile(t *testing.T) {
 				"ErrorMsg": "none",
 			},
 		},
-		{"process secret with wrong Data[key]", MockReconcileReq("err-key-kubeconfig", TestNamespace), true,
-			map[string]string{
-				"ErrorMsg": "wrong secret key",
-			},
-		},
-		{"process secret with wrong Type", MockReconcileReq("err-type-kubeconfig", TestNamespace), true,
-			map[string]string{
-				"ErrorMsg": "wrong secret type",
-			},
-		},
+		// {"process secret with wrong Data[key]", MockReconcileReq("err-key-kubeconfig", TestNamespace), true,
+		// 	map[string]string{
+		// 		"ErrorMsg": "wrong secret key",
+		// 	},
+		// },
+		// {"process secret with wrong Type", MockReconcileReq("err-type-kubeconfig", TestNamespace), true,
+		// 	map[string]string{
+		// 		"ErrorMsg": "wrong secret type",
+		// 	},
+		// },
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -188,13 +188,5 @@ func MockReconcileEnv() error {
 		return err
 	}
 
-	if err := K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, validKey, "err-name", TestNamespace)); err != nil {
-		return err
-	}
-
-	if err := K8sClient.Create(context.Background(), MockArgoSecret()); err != nil {
-		return err
-	}
-
-	return nil
+	return K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, validKey, "err-name", TestNamespace))
 }

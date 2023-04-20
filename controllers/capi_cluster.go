@@ -13,6 +13,13 @@ const CapiClusterSecretType corev1.SecretType = "cluster.x-k8s.io/secret"
 
 // CapiCluster is an one-on-one representation of KubeConfig fields.
 type CapiCluster struct {
+	Name       string     `yaml:"name"`
+	Namespace  string     `yaml:"namespace"`
+	KubeConfig KubeConfig `yaml:"kubeConfig"`
+}
+
+// KubeConfig is an one-on-one representation of KubeConfig fields.
+type KubeConfig struct {
 	APIVersion string    `yaml:"apiVersion"`
 	Kind       string    `yaml:"kind"`
 	Clusters   []Cluster `yaml:"clusters"`
@@ -44,8 +51,12 @@ type UserInfo struct {
 }
 
 // NewCapiCluster returns an empty CapiCluster type.
-func NewCapiCluster() *CapiCluster {
-	return &CapiCluster{}
+func NewCapiCluster(name, namespace string) *CapiCluster {
+	return &CapiCluster{
+		Name:       name,
+		Namespace:  namespace,
+		KubeConfig: KubeConfig{},
+	}
 }
 
 // Unmarshal k8s secret into CapiCluster type.
@@ -53,9 +64,10 @@ func (c *CapiCluster) Unmarshal(s *corev1.Secret) error {
 	if err := ValidateCapiSecret(s); err != nil {
 		return err
 	}
-	err := yaml.Unmarshal(s.Data["value"], c)
-	if err != nil || len(c.Clusters) == 0 || len(c.Users) == 0 || c.APIVersion != "v1" || c.Kind != "Config" {
-		return err
+	err := yaml.Unmarshal(s.Data["value"], &c.KubeConfig)
+	if err != nil || len(c.KubeConfig.Clusters) == 0 || len(c.KubeConfig.Users) == 0 || c.KubeConfig.APIVersion != "v1" || c.KubeConfig.Kind != "Config" {
+		return errors.New("invalid KubeConfig")
+
 	}
 	return nil
 }

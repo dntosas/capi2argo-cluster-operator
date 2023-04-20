@@ -8,6 +8,8 @@ metadata:
   labels:
     argocd.argoproj.io/secret-type: cluster
     capi-to-argocd/owned: "true"
+    capi-to-argocd/cluster-name: "cluster-test"
+    capi-to-argocd/cluster-namespace: "test"
   name: cluster-east
   namespace: argocd
 type: Opaque

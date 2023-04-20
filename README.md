@@ -131,9 +131,8 @@ In the meantime, feel free to grab any of unimplemented bullets on the Roadmap s
 
 ### v0.2.0
 
-- [ ] Use OwnerReferences
 - [ ] Adopt [Operator Best Practices](https://sdk.operatorframework.io/docs/best-practices/best-practices/)
-- [ ] Garbage Collection
+- [x] Garbage Collection
 - [ ] Quickstart Deployment (Kind Cluster)
 - [ ] Support for filtering Namespaces
 - [x] Support for multi-arch Docker images (amd64/arm64)

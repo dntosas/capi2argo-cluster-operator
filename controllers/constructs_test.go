@@ -9,22 +9,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// MockCapiCluster returns a based64-encoded string that
-// represents a valid CapiCluster definition.
-func MockCapiCluster() string {
-	RawCapiCluster, err := os.ReadFile("../tests/capi-cluster.yaml")
+// MockCapiKubeConfig returns a based64-encoded string that
+// represents a valid KubeConfig definition.
+func MockCapiKubeConfig() string {
+	RawKubeConfig, err := os.ReadFile("../tests/capi-kubeconfig.yaml")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return b64.StdEncoding.EncodeToString(RawCapiCluster)
+	return b64.StdEncoding.EncodeToString(RawKubeConfig)
 }
 
 func MockCapiSecret(validMock bool, validType bool, validKey bool, name string, namespace string) *corev1.Secret {
 	// If validMock=true, return type with proper b64 encoded values
 	var v []byte
 	if validMock {
-		v, _ = b64.StdEncoding.DecodeString(MockCapiCluster())
+		v, _ = b64.StdEncoding.DecodeString(MockCapiKubeConfig())
 	} else {
 		v = []byte("tester")
 	}
@@ -55,7 +55,6 @@ func MockCapiSecret(validMock bool, validType bool, validKey bool, name string, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    GetArgoLabels(),
 		},
 		Data: map[string][]byte{
 			k: v,
@@ -79,6 +78,10 @@ func MockArgoCluster(validMock bool) *ArgoCluster {
 		NamespacedName: BuildNamespacedName("test", "test"),
 		ClusterName:    "test",
 		ClusterServer:  "server",
+		ClusterLabels: map[string]string{
+			"capi-to-argocd/cluster-secret-name": "test" + "-kubeconfig",
+			"capi-to-argocd/cluster-namespace":   "test",
+		},
 		ClusterConfig: ArgoConfig{
 			TLSClientConfig: ArgoTLS{
 				CaData:   v,

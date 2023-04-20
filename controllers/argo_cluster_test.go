@@ -20,12 +20,15 @@ func TestConvertToSecret(t *testing.T) {
 	}{
 		{"test type with valid fields", MockArgoCluster(validMock), false,
 			map[string]string{
-				"Kind":          "Secret",
-				"APIVersion":    "v1",
-				"Name":          "cluster-test",
-				"Namespace":     ArgoNamespace,
-				"OperatorLabel": GetArgoLabels()["capi-to-argocd/owned"],
-				"ArgoLabel":     GetArgoLabels()["argocd.argoproj.io/secret-type"]},
+				"Kind":            "Secret",
+				"APIVersion":      "v1",
+				"Name":            "cluster-test",
+				"Namespace":       ArgoNamespace,
+				"OperatorLabel":   GetArgoCommonLabels()["capi-to-argocd/owned"],
+				"ArgoLabel":       GetArgoCommonLabels()["argocd.argoproj.io/secret-type"],
+				"SecretNameLabel": "test-kubeconfig",
+				"NamespaceLabel":  "test",
+			},
 		},
 		{"test type with non-valid fields", MockArgoCluster(!validMock), true, nil},
 	}
@@ -44,6 +47,8 @@ func TestConvertToSecret(t *testing.T) {
 					assert.Equal(t, tt.testExpectedValues["Namespace"], s.ObjectMeta.Namespace)
 					assert.Equal(t, tt.testExpectedValues["OperatorLabel"], s.ObjectMeta.Labels["capi-to-argocd/owned"])
 					assert.Equal(t, tt.testExpectedValues["ArgoLabel"], s.ObjectMeta.Labels["argocd.argoproj.io/secret-type"])
+					assert.Equal(t, tt.testExpectedValues["SecretNameLabel"], s.ObjectMeta.Labels["capi-to-argocd/cluster-secret-name"])
+					assert.Equal(t, tt.testExpectedValues["NamespaceLabel"], s.ObjectMeta.Labels["capi-to-argocd/cluster-namespace"])
 					_, err = yaml.Marshal(s)
 					assert.Nil(t, err)
 				}
