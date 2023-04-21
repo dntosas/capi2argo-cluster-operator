@@ -92,6 +92,14 @@ spec:
             - name: ARGOCD_NAMESPACE
               value: {{ .Values.argoCDNamespace | squote }}
             {{- end }}
+            {{- if .Values.garbageCollectionEnabled }}
+            - name: ENABLE_GARBAGE_COLLECTION
+              value: {{ .Values.garbageCollectionEnabled | squote }}
+            {{- end }}
+            {{- if .Values.namespacedNamesEnabled }}
+            - name: ENABLE_NAMESPACED_NAMES
+              value: {{ .Values.namespacedNamesEnabled | squote }}
+            {{- end }}
             {{- if .Values.extraEnvVars }}
             {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
             {{- end }}

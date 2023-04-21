@@ -128,7 +128,7 @@ func TestReconcile(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		time.Sleep(3 * time.Second)
+		time.Sleep(5 * time.Second)
 		Cancel()
 		By("tearing down the test environment")
 		err = TestEnv.Stop()
@@ -184,17 +184,5 @@ func MockReconcileEnv() error {
 		return err
 	}
 
-	if err := K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, !validKey, "err-key-kubeconfig", TestNamespace)); err != nil {
-		return err
-	}
-
-	if err := K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, validKey, "err-name", TestNamespace)); err != nil {
-		return err
-	}
-
-	if err := K8sClient.Create(context.Background(), MockArgoSecret()); err != nil {
-		return err
-	}
-
-	return nil
+	return K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, !validKey, "err-key-kubeconfig", TestNamespace))
 }

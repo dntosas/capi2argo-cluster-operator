@@ -12,11 +12,13 @@ replicaCount: 1
 image:
   registry: ghcr.io
   repository: dntosas/capi2argo-cluster-operator
-  tag: v0.1.11
-  pullPolicy: IfNotPresent
+  tag: v0.1.12
+  pullPolicy: Always
   pullSecrets: []
 
 argoCDNamespace: "argocd"
+namespacedNamesEnabled: false
+garbageCollectionEnabled: true
 
 dryRun: false
 debugMode: false
@@ -61,7 +63,7 @@ podSecurityContext:
 resources:
   limits:
      cpu: 50m
-     memory: 50Mi
+     memory: 128Mi
   requests:
      cpu: 10m
      memory: 50Mi
@@ -71,7 +73,7 @@ livenessProbe:
   initialDelaySeconds: 10
   periodSeconds: 10
   timeoutSeconds: 5
-  failureThreshold: 2
+  failureThreshold: 8
   successThreshold: 1
 
 readinessProbe:
