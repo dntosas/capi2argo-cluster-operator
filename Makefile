@@ -7,12 +7,12 @@ GROUP = $(shell id -g)
 PROJECT = "capi2argo-cluster-operator"
 GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT}/cmd.CommitHash=${COMMIT}"
 GO_IMAGE = "golang:1.20-alpine"
-GO_IMAGE_CI = "golangci/golangci-lint:v1.51.1"
+GO_IMAGE_CI = "golangci/golangci-lint:v1.52.2"
 DISTROLESS_IMAGE = "gcr.io/distroless/static:nonroot"
 IMAGE_TAG_BASE ?= "ghcr.io/dntosas/${PROJECT}"
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.25.0
+ENVTEST_K8S_VERSION = 1.26.1
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -43,7 +43,7 @@ lint: ## Run golangci-lint against code.
 
 .PHONY: test
 test: envtest ## Run go tests against code.
-		KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v -mod=vendor `go list ./...` -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -mod=vendor `go list ./...` -coverprofile cover.out
 
 .PHONY: ci
 ci: fmt vet lint test ## Run go fmt/vet/lint/tests against the code.
@@ -60,19 +60,27 @@ helm-docs:
 
 .PHONY: build
 build: ## Build capi-to-argocd-operator binary.
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -mod=vendor ${GOBUILD_OPTS} -o bin/${PROJECT} main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -mod=vendor ${GOBUILD_OPTS} -o ${PROJECT} main.go
+
+.PHONY: build-darwin
+build-darwin: ## Build capi-to-argocd-operator binary.
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -a -mod=vendor ${GOBUILD_OPTS} -o ${PROJECT} main.go
 
 .PHONY: run
 run: ## Run the controller from your host against your current kconfig context.
 	go run -mod=vendor ./main.go
 
-.PHONY: docker-build
-docker-build: build ## Build docker image with the manager.
-	docker build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg DISTROLESS_IMAGE=${DISTROLESS_IMAGE} -t ${IMAGE_TAG_BASE}:${VERSION} --no-cache .
+.PHONY: docker-build-dev
+docker-build-dev: build ## Build docker image with the manager.
+	docker build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg DISTROLESS_IMAGE=${DISTROLESS_IMAGE} -t ${IMAGE_TAG_BASE}:dev --no-cache .
 
-.PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	docker push ${IMAGE_TAG_BASE}:${VERSION}
+.PHONY: docker-push-dev
+docker-push-dev: ## Push docker image with the manager.
+	docker push ${IMAGE_TAG_BASE}:dev
+
+.PHONY: helm-deploy-dev
+helm-deploy-dev: ## Deploy helm chart with the manager.
+	helm upgrade -i capi2argo charts/capi2argo-cluster-operator --set image.tag=dev
 
 checksums:
 	sha256sum bin/${PROJECT} > bin/${PROJECT}.sha256

@@ -13,6 +13,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
+)
+
+var (
+	// EnableGarbageCollection enables experimental GC feature
+	EnableGarbageCollection bool
+
+	// EnableNamespacedNames represents a mode where the cluster name is always
+	// prepended by the cluster namespace in all generated secrets
+	EnableNamespacedNames bool
 )
 
 func init() {
@@ -23,6 +33,7 @@ func init() {
 		ArgoNamespace = "argocd"
 	}
 
+	EnableGarbageCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_GARBAGE_COLLECTION"))
 	EnableNamespacedNames, _ = strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
 }
 
@@ -51,6 +62,32 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	var capiSecret corev1.Secret
 	err := r.Get(ctx, req.NamespacedName, &capiSecret)
 	if err != nil {
+		// If we get error reading the object - requeue the request.
+		if client.IgnoreNotFound(err) != nil {
+			return ctrl.Result{}, err
+		}
+
+		// If secret is deleted and GC is enabled, mark ArgoSecret for deletion.
+		if EnableGarbageCollection {
+			labelSelector := map[string]string{
+				"capi-to-argocd/cluster-secret-name": req.NamespacedName.Name,
+				"capi-to-argocd/cluster-namespace":   req.NamespacedName.Namespace,
+			}
+			listOption := client.MatchingLabels(labelSelector)
+			secretList := &corev1.SecretList{}
+			err = r.List(context.Background(), secretList, listOption)
+			if err != nil {
+				log.Error(err, "Failed to list Cluster Secrets")
+				return ctrl.Result{}, err
+			}
+			if err := r.Delete(ctx, &secretList.Items[0]); err != nil {
+				log.Error(err, "Failed to delete ArgoSecret")
+				return ctrl.Result{}, err
+			}
+			log.Info("Deleted successfully of ArgoSecret")
+			return ctrl.Result{}, nil
+		}
+
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	log.Info("Fetched CapiSecret")
@@ -64,7 +101,9 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	}
 
 	// Construct CapiCluster from CapiSecret.
-	capiCluster := NewCapiCluster()
+	nn := strings.TrimSuffix(req.NamespacedName.Name, "-kubeconfig")
+	ns := req.NamespacedName.Namespace
+	capiCluster := NewCapiCluster(nn, ns)
 	err = capiCluster.Unmarshal(&capiSecret)
 	if err != nil {
 		log.Error(err, "Failed to unmarshal CapiCluster")

@@ -16,14 +16,10 @@ import (
 var (
 	// ArgoNamespace represents the Namespace that hold ArgoCluster secrets.
 	ArgoNamespace string
-
-	// EnableNamespacedNames represents a mode where the cluster name is always
-	// prepended by the cluster namespace in all generated secrets
-	EnableNamespacedNames bool
 )
 
-// GetArgoLabels holds a map of labels that reconciled objects must have.
-func GetArgoLabels() map[string]string {
+// GetArgoCommonLabels holds a map of labels that reconciled objects must have.
+func GetArgoCommonLabels() map[string]string {
 	return map[string]string{
 		"capi-to-argocd/owned":           "true",
 		"argocd.argoproj.io/secret-type": "cluster",
@@ -35,6 +31,7 @@ type ArgoCluster struct {
 	NamespacedName types.NamespacedName
 	ClusterName    string
 	ClusterServer  string
+	ClusterLabels  map[string]string
 	ClusterConfig  ArgoConfig
 }
 
@@ -54,13 +51,17 @@ type ArgoTLS struct {
 func NewArgoCluster(c *CapiCluster, s *corev1.Secret) *ArgoCluster {
 	return &ArgoCluster{
 		NamespacedName: BuildNamespacedName(s.ObjectMeta.Name, s.ObjectMeta.Namespace),
-		ClusterName:    BuildClusterName(c.Clusters[0].Name, s.ObjectMeta.Namespace),
-		ClusterServer:  c.Clusters[0].Cluster.Server,
+		ClusterName:    BuildClusterName(c.KubeConfig.Clusters[0].Name, s.ObjectMeta.Namespace),
+		ClusterServer:  c.KubeConfig.Clusters[0].Cluster.Server,
+		ClusterLabels: map[string]string{
+			"capi-to-argocd/cluster-secret-name": c.Name + "-kubeconfig",
+			"capi-to-argocd/cluster-namespace":   c.Namespace,
+		},
 		ClusterConfig: ArgoConfig{
 			TLSClientConfig: ArgoTLS{
-				CaData:   c.Clusters[0].Cluster.CaData,
-				CertData: c.Users[0].User.CertData,
-				KeyData:  c.Users[0].User.KeyData,
+				CaData:   c.KubeConfig.Clusters[0].Cluster.CaData,
+				CertData: c.KubeConfig.Users[0].User.CertData,
+				KeyData:  c.KubeConfig.Users[0].User.KeyData,
 			},
 		},
 	}
@@ -92,6 +93,15 @@ func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	mergedLabels := make(map[string]string)
+	for key, value := range GetArgoCommonLabels() {
+		mergedLabels[key] = value
+	}
+	for key, value := range a.ClusterLabels {
+		mergedLabels[key] = value
+	}
+
 	argoSecret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -100,7 +110,7 @@ func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      a.NamespacedName.Name,
 			Namespace: a.NamespacedName.Namespace,
-			Labels:    GetArgoLabels(),
+			Labels:    mergedLabels,
 		},
 		Data: map[string][]byte{
 			"name":   []byte(a.ClusterName),

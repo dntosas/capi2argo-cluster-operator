@@ -52,25 +52,34 @@ func TestUnmarshal(t *testing.T) {
 		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
-			c := NewCapiCluster()
+			c := NewCapiCluster(name, namespace)
 			err := c.Unmarshal(tt.testMock)
 			if !tt.testExpectedError {
 				assert.NotNil(t, c)
 				assert.Nil(t, err)
 				if tt.testExpectedValues != nil {
 					// Check expected values.
-					assert.Equal(t, tt.testExpectedValues["Kind"], c.Kind)
-					assert.Equal(t, tt.testExpectedValues["APIVersion"], c.APIVersion)
-					assert.Equal(t, tt.testExpectedValues["ClusterName"], c.Clusters[0].Name)
-					assert.Equal(t, tt.testExpectedValues["Server"], c.Clusters[0].Cluster.Server)
-					assert.Equal(t, tt.testExpectedValues["UserName"], c.Users[0].Name)
+					assert.Equal(t, tt.testExpectedValues["Kind"], c.KubeConfig.Kind)
+					assert.Equal(t, tt.testExpectedValues["APIVersion"], c.KubeConfig.APIVersion)
+					assert.Equal(t, tt.testExpectedValues["ClusterName"], c.KubeConfig.Clusters[0].Name)
+					assert.Equal(t, tt.testExpectedValues["Server"], c.KubeConfig.Clusters[0].Cluster.Server)
+					assert.Equal(t, tt.testExpectedValues["UserName"], c.KubeConfig.Users[0].Name)
 					// Check that we get proper binary values for specific fields.
-					assert.Eventually(t, func() bool { _, err := b64.StdEncoding.DecodeString(c.Users[0].User.CertData); return err == nil }, time.Second, 100*time.Millisecond)
-					assert.Eventually(t, func() bool { _, err := b64.StdEncoding.DecodeString(c.Users[0].User.KeyData); return err == nil }, time.Second, 100*time.Millisecond)
-					assert.Eventually(t, func() bool { _, err := b64.StdEncoding.DecodeString(c.Clusters[0].Cluster.CaData); return err == nil }, time.Second, 100*time.Millisecond)
+					assert.Eventually(t, func() bool {
+						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Users[0].User.CertData)
+						return err == nil
+					}, time.Second, 100*time.Millisecond)
+					assert.Eventually(t, func() bool {
+						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Users[0].User.KeyData)
+						return err == nil
+					}, time.Second, 100*time.Millisecond)
+					assert.Eventually(t, func() bool {
+						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Clusters[0].Cluster.CaData)
+						return err == nil
+					}, time.Second, 100*time.Millisecond)
 					// Get at least one cluster/user per secret.
-					assert.GreaterOrEqual(t, len(c.Clusters), 1)
-					assert.GreaterOrEqual(t, len(c.Users), 1)
+					assert.GreaterOrEqual(t, len(c.KubeConfig.Clusters), 1)
+					assert.GreaterOrEqual(t, len(c.KubeConfig.Users), 1)
 					_, err = yaml.Marshal(c)
 					assert.Nil(t, err)
 				}
@@ -85,7 +94,7 @@ func TestUnmarshal(t *testing.T) {
 }
 
 func TestNewCapiCluster(t *testing.T) {
-	c := NewCapiCluster()
+	c := NewCapiCluster("test", "test")
 	assert.IsType(t, &CapiCluster{}, c)
 }
 
