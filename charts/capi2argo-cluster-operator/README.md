@@ -1,6 +1,6 @@
 # capi2argo-cluster-operator
 
-![Version: 0.1.12](https://img.shields.io/badge/Version-0.1.12-informational?style=flat-square) ![AppVersion: 0.1.12](https://img.shields.io/badge/AppVersion-0.1.12-informational?style=flat-square)
+![Version: 0.1.13](https://img.shields.io/badge/Version-0.1.13-informational?style=flat-square) ![AppVersion: 0.1.13](https://img.shields.io/badge/AppVersion-0.1.13-informational?style=flat-square)
 
 Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into ArgoCD Cluster definitions and keep them synchronized.
 
@@ -46,17 +46,17 @@ Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into
 | global.imagePullSecrets | list | `[]` |  |
 | global.imageRegistry | string | `""` |  |
 | hostAliases | list | `[]` |  |
-| image.pullPolicy | string | `"IfNotPresent"` |  |
+| image.pullPolicy | string | `"Always"` |  |
 | image.pullSecrets | list | `[]` |  |
 | image.registry | string | `"ghcr.io"` |  |
 | image.repository | string | `"dntosas/capi2argo-cluster-operator"` |  |
-| image.tag | string | `"v0.1.12"` |  |
+| image.tag | string | `"v0.1.13"` |  |
 | initContainers | list | `[]` |  |
 | kubeVersion | string | `""` |  |
 | leaderElection | bool | `false` |  |
 | lifecycleHooks | object | `{}` |  |
 | livenessProbe.enabled | bool | `true` |  |
-| livenessProbe.failureThreshold | int | `2` |  |
+| livenessProbe.failureThreshold | int | `8` |  |
 | livenessProbe.initialDelaySeconds | int | `10` |  |
 | livenessProbe.periodSeconds | int | `10` |  |
 | livenessProbe.successThreshold | int | `1` |  |
@@ -99,7 +99,7 @@ Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into
 | readinessProbe.timeoutSeconds | int | `5` |  |
 | replicaCount | int | `1` |  |
 | resources.limits.cpu | string | `"50m"` |  |
-| resources.limits.memory | string | `"50Mi"` |  |
+| resources.limits.memory | string | `"128Mi"` |  |
 | resources.requests.cpu | string | `"10m"` |  |
 | resources.requests.memory | string | `"50Mi"` |  |
 | schedulerName | string | `""` |  |
