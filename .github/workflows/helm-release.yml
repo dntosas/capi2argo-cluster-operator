@@ -22,7 +22,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3.5
         with:
-          version: v3.9.0
+          version: v3.12.3
 
       - name: Add Helm dependency repos
         run: |
