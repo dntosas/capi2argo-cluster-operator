@@ -20,4 +20,13 @@ rules:
       - 'get'
       - 'list'
       - 'watch'
+  - apiGroups:
+      - cluster.x-k8s.io
+    resources:
+      - clusters
+    verbs:
+      - get
+      - list
+      - watch
+
 {{- end }}
