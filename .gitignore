@@ -28,3 +28,4 @@ dist/
 
 cosign.key
 .vscode
+capi2argo-cluster-operator
