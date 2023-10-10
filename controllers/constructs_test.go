@@ -55,6 +55,9 @@ func MockCapiSecret(validMock bool, validType bool, validKey bool, name string, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels: map[string]string{
+				"cluster.x-k8s.io/cluster-name": "test",
+			},
 		},
 		Data: map[string][]byte{
 			k: v,
