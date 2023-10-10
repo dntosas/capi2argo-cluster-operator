@@ -24,8 +24,8 @@ var (
 )
 
 const (
-	clusterTakeAlongKey        = "take-along-label.capi-to-argocd-"
-	clusterTakenFromClusterKey = "taken-from-cluster-label.capi-to-argocd-"
+	clusterTakeAlongKey        = "take-along-label.capi-to-argocd."
+	clusterTakenFromClusterKey = "taken-from-cluster-label.capi-to-argocd."
 )
 
 // GetArgoCommonLabels holds a map of labels that reconciled objects must have.
