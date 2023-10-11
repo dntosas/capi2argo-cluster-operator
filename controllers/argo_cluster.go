@@ -19,7 +19,8 @@ import (
 
 var (
 	// ArgoNamespace represents the Namespace that hold ArgoCluster secrets.
-	ArgoNamespace  string
+	ArgoNamespace string
+	// TestKubeConfig represents
 	TestKubeConfig *rest.Config
 )
 
@@ -63,13 +64,11 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 	log := ctrl.Log.WithName("argoCluster")
 
 	takeAlongLabels := map[string]string{}
-	errors := []string{}
+	var errList []string
 	if cluster != nil {
-		takeAlongLabels, errors = buildTakeAlongLabels(cluster)
-		if errors != nil {
-			for _, e := range errors {
-				log.Info(e)
-			}
+		takeAlongLabels, errList = buildTakeAlongLabels(cluster)
+		for _, e := range errList {
+			log.Info(e)
 		}
 	}
 	return &ArgoCluster{

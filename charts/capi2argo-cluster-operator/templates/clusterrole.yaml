@@ -28,5 +28,4 @@ rules:
       - get
       - list
       - watch
-
 {{- end }}
