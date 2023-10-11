@@ -6,13 +6,13 @@ USER = $(shell id -u)
 GROUP = $(shell id -g)
 PROJECT = "capi2argo-cluster-operator"
 GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT}/cmd.CommitHash=${COMMIT}"
-GO_IMAGE = "golang:1.20-alpine"
-GO_IMAGE_CI = "golangci/golangci-lint:v1.52.2"
+GO_IMAGE = "golang:1.21-alpine"
+GO_IMAGE_CI = "golangci/golangci-lint:v1.54.2"
 DISTROLESS_IMAGE = "gcr.io/distroless/static:nonroot"
 IMAGE_TAG_BASE ?= "ghcr.io/dntosas/${PROJECT}"
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26.1
+ENVTEST_K8S_VERSION = 1.27.1
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -39,7 +39,7 @@ vet: ## Run go vet against code.
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
-	@docker run --rm --volume "${PWD}:/app" -w /app "${GO_IMAGE_CI}" golangci-lint run --enable revive,gofmt,exportloopref --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
+	golangci-lint run --enable revive,gofmt,exportloopref --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
 
 .PHONY: test
 test: envtest ## Run go tests against code.
