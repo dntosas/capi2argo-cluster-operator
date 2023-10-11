@@ -12,7 +12,7 @@ Probably to be here, you are already aware of **ClusterAPI** and **ArgoCD**. If 
 
 - [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) is a declarative, GitOps continuous delivery tool for Kubernetes. It automates the deployment of the desired application states in the specified target environments. In simple words, give a Git and a target Kubernetes Cluster and Argo will keep you package up, running and always in-sync with your source.
 
-So.. we have CAPI that enables us to define Clusters as native k8s objects and ArgoCD that can take these objects and deploy them. Let's demonstrate how a pipeline like this could look like:
+So, we have CAPI that enables us to define Clusters as native k8s objects and ArgoCD that can take these objects and deploy them. Let's demonstrate how a pipeline like this could look like:
 
 ![flow-without-capi2argo](docs/flow-without-operator.png)
 
@@ -37,6 +37,7 @@ But how can we automate this? Capi2Argo Cluster Operator was created so it can t
 CACO implements them in an automated loop that watches for changing events in secret resources and if conditions are met to be a CAPI compliant, it converts and deploy them as Argo compatible ones. What is actually does under the hood, is a god simple [KRM](https://github.com/kubernetes/design-proposals-archive/blob/8da1442ea29adccea40693357d04727127e045ed/architecture/resource-management.md) transformation like this:
 
 Before we got only [CAPI Cluster Spec]():
+
 ```yaml
 kind: Secret
 apiVersion: v1
@@ -50,8 +51,8 @@ data:
 ```
 
 After we have also [Argo Cluster Spec](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#clusters):
-```yaml
 
+```yaml
 kind: Secret
 apiVersion: v1
 type: Opaque
@@ -84,6 +85,47 @@ Above functionality use-case can be demonstrated by extending the Workflow menti
 
 ![flow-with-capi2argo](docs/flow-with-operator.png)
 
+## Take along labels from cluster resources
+
+Capi-2-Argo Cluster Operator is able to take along labels from a `Cluster` resource and place them on the `Secret` resource that is created for the cluster. This is especially useful when using labels to instruct ArgoCD which clusters to sync with certain applications.
+
+To enable this feature, add a label with this format to the `Cluster` resource: `take-along-label.capi-to-argocd.<label-key>: ""`.
+
+The following example 
+
+```yaml
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata: 
+  name: ArgoCluster
+  namespace: default
+  labels: 
+    foo: bar
+    my.domain.com/env: stage
+    take-along-label.capi-to-argocd.foo: ""
+    take-along-label.capi-to-argocd.my.domain.com/env: ""
+spec: 
+// ..
+```
+Results in the following `Secret` resource:
+
+```yaml
+kind: Secret
+apiVersion: v1
+type: Opaque
+metadata:
+  name: ArgoCluster
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+    capi-to-argocd/owned: "true" 
+    foo: bar
+    my.domain.com/env: stage
+    taken-from-cluster-label.capi-to-argocd.foo: ""
+    taken-from-cluster-label.capi-to-argocd.my.domain.com/env: ""
+stringData:
+// ...
+```
 
 ## Use Cases
 

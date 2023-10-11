@@ -7,13 +7,17 @@ import (
 	"os"
 	"strconv"
 
+	"slices"
+	"strings"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 var (
@@ -110,8 +114,18 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		return ctrl.Result{}, err
 	}
 
+	clusterObject := &clusterv1.Cluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: capiSecret.Labels[clusterv1.ClusterNameLabel], Namespace: req.Namespace}, clusterObject)
+	if err != nil {
+		log.Info("Failed to get Cluster object", "error", err)
+	}
+
 	// Construct ArgoCluster from CapiCluster and CapiSecret.Metadata.
-	argoCluster := NewArgoCluster(capiCluster, &capiSecret)
+	argoCluster, err := NewArgoCluster(capiCluster, &capiSecret, clusterObject)
+	if err != nil {
+		log.Error(err, "Failed to construct ArgoCluster")
+		return ctrl.Result{}, err
+	}
 
 	// Convert ArgoCluster into ArgoSecret to work natively on k8s objects.
 	log = r.Log.WithValues("cluster", argoCluster.NamespacedName)
@@ -158,7 +172,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		log.Info("Checking if ArgoSecret is managed by the Controller")
 		err := ValidateObjectOwner(existingSecret)
 		if err != nil {
-			log.Info("Not managed by Controller, skipping..")
+			log.Info("Not managed by Controller, skipping...")
 			return ctrl.Result{}, nil
 		}
 
@@ -179,6 +193,48 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			changed = true
 		}
 
+		// Check if take-along labels from argoCluster.TakeAlongLabels exist existingSecret.Labels and have the same values.
+		// If not set changed to true and update existingSecret.Labels.
+		log.Info("Checking for take-along labels")
+		log.Info("Take along labels", "labels", argoCluster.TakeAlongLabels)
+		argoSecretTakenAlongLabels := []string{}
+		for l := range argoCluster.TakeAlongLabels {
+			if strings.HasPrefix(l, clusterTakenFromClusterKey) {
+				key := strings.Split(l, clusterTakenFromClusterKey)[1]
+				argoSecretTakenAlongLabels = append(argoSecretTakenAlongLabels, key)
+			}
+		}
+		// Find difference between secrets prefixed with `taken-from-cluster-label.capi-to-argocd`
+		// between existingSecret.Labels and argoSecretTakenAlongLabels
+		// in order to handle removed 'take-from'-labels from the cluster resource
+		for k := range existingSecret.Labels {
+			if strings.HasPrefix(k, clusterTakenFromClusterKey) {
+				key := strings.Split(k, clusterTakenFromClusterKey)[1]
+				if !slices.Contains(argoSecretTakenAlongLabels, key) {
+					delete(existingSecret.Labels, k)
+					delete(existingSecret.Labels, key)
+					changed = true
+				}
+			}
+		}
+
+		// Update secrets labels with current values
+		for k, v := range argoCluster.TakeAlongLabels {
+			// check if label exists in map
+			if val, ok := existingSecret.Labels[k]; ok {
+				// check if label value is the same
+				if val != v {
+					log.Info("Updating value of label in ArgoSecret", "label", k, "value", val)
+					existingSecret.Labels[k] = v
+					changed = true
+				}
+			} else {
+				log.Info("Adding missing label in ArgoSecret", "label", k)
+				existingSecret.Labels[k] = v
+				changed = true
+			}
+		}
+
 		if changed {
 			log.Info("Updating out-of-sync ArgoSecret")
 			if err := r.Update(ctx, &existingSecret); err != nil {
@@ -189,7 +245,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			return ctrl.Result{}, nil
 		}
 
-		log.Info("ArgoSecret is in-sync with CapiCluster, skipping..")
+		log.Info("ArgoSecret is in-sync with CapiCluster, skipping...")
 		return ctrl.Result{}, nil
 	}
 
@@ -198,7 +254,9 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 // SetupWithManager ..
 func (r *Capi2Argo) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&corev1.Secret{}).Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Secret{}).
+		Complete(r)
 }
 
 // ValidateObjectOwner checks whether reconciled object is managed by CACO or not.
