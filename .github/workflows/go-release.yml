@@ -42,7 +42,7 @@ jobs:
           KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v5
         with:
           args: release --clean --config .github/config/goreleaser.yaml
         env:
