@@ -24,11 +24,6 @@ var (
 	TestKubeConfig *rest.Config
 )
 
-const (
-	clusterTakeAlongKey        = "take-along-label.capi-to-argocd."
-	clusterTakenFromClusterKey = "taken-from-cluster-label.capi-to-argocd."
-)
-
 // GetArgoCommonLabels holds a map of labels that reconciled objects must have.
 func GetArgoCommonLabels() map[string]string {
 	return map[string]string{
@@ -43,7 +38,6 @@ type ArgoCluster struct {
 	ClusterName     string
 	ClusterServer   string
 	ClusterLabels   map[string]string
-	TakeAlongLabels map[string]string
 	ClusterConfig   ArgoConfig
 }
 
@@ -61,10 +55,10 @@ type ArgoTLS struct {
 }
 
 // NewArgoCluster return a new ArgoCluster
-func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster) (*ArgoCluster, error) {
+func NewArgoCluster(c *CapiCluster, s *corev1.Secret) (*ArgoCluster, error) {
 	log := ctrl.Log.WithName("argoCluster")
 
-	takeAlongLabels := map[string]string{}
+	ExtraLabels := map[string]string{}
 	var errList []string
 	if cluster != nil {
 		takeAlongLabels, errList = buildTakeAlongLabels(cluster)
@@ -80,7 +74,6 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 			"capi-to-argocd/cluster-secret-name": c.Name + "-kubeconfig",
 			"capi-to-argocd/cluster-namespace":   c.Namespace,
 		},
-		TakeAlongLabels: takeAlongLabels,
 		ClusterConfig: ArgoConfig{
 			BearerToken: c.KubeConfig.Users[0].User.Token,
 			TLSClientConfig: &ArgoTLS{
@@ -92,55 +85,11 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 	}, nil
 }
 
-// extractTakeAlongLabel returns the take-along label key from a cluster resource
-func extractTakeAlongLabel(key string) (string, error) {
-	if strings.HasPrefix(key, clusterTakeAlongKey) {
-		splitResult := strings.Split(key, clusterTakeAlongKey)
-		if len(splitResult) >= 2 {
-			if splitResult[1] != "" {
-				return splitResult[1], nil
-			}
-		}
-		return "", fmt.Errorf("invalid take-along label. missing key after '/': %s", key)
-	}
-	// Not an take-along label. Return nil
-	return "", nil
-}
+
 
 // buildTakeAlongLabels returns a list of valid take-along labels from a cluster
 func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []string) {
-	name := cluster.Name
-	namespace := cluster.Namespace
-	clusterLabels := cluster.Labels
 
-	takeAlongLabels := []string{}
-	// Check labels keys that begin with clusterTakeAlongKey and extract the value after the last '/
-	for k := range clusterLabels {
-		l, err := extractTakeAlongLabel(k)
-		if err != nil {
-			return nil, []string{err.Error()}
-		}
-		if l != "" {
-			takeAlongLabels = append(takeAlongLabels, l)
-		}
-	}
-
-	takeAlongLabelsMap := make(map[string]string)
-
-	errors := []string{}
-	if len(takeAlongLabels) > 0 {
-		for _, label := range takeAlongLabels {
-			if label != "" {
-				if _, ok := clusterLabels[label]; !ok {
-					errors = append(errors, fmt.Sprintf("take-along label '%s' not found on cluster resource: %s, namespace: %s. Ignoring", label, name, namespace))
-					continue
-				}
-				takeAlongLabelsMap[label] = clusterLabels[label]
-				takeAlongLabelsMap[fmt.Sprintf("%s%s", clusterTakenFromClusterKey, label)] = ""
-			}
-		}
-	}
-	return takeAlongLabelsMap, errors
 }
 
 // BuildNamespacedName returns k8s native object identifier.

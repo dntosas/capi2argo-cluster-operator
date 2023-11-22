@@ -85,26 +85,24 @@ Above functionality use-case can be demonstrated by extending the Workflow menti
 
 ![flow-with-capi2argo](docs/flow-with-operator.png)
 
-## Take along labels from cluster resources
+## Inherit labels from Cluster resources
 
 Capi-2-Argo Cluster Operator is able to take along labels from a `Cluster` resource and place them on the `Secret` resource that is created for the cluster. This is especially useful when using labels to instruct ArgoCD which clusters to sync with certain applications.
 
-To enable this feature, add a label with this format to the `Cluster` resource: `take-along-label.capi-to-argocd.<label-key>: ""`.
+To enable this feature, configure a label-prefix on environment `CACO_INHERIT_LABEL_PREFIX` or via Helm values.
 
-The following example 
+The following example takes as configured prefix `label-k8s-io` to inherit labels to rendered resources:
 
 ```yaml
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
-metadata: 
+metadata:
   name: ArgoCluster
   namespace: default
-  labels: 
-    foo: bar
-    my.domain.com/env: stage
-    take-along-label.capi-to-argocd.foo: ""
-    take-along-label.capi-to-argocd.my.domain.com/env: ""
-spec: 
+  labels:
+    label-k8s-io.foo: "bar"
+    label-k8s-io/env: "test"
+spec:
 // ..
 ```
 Results in the following `Secret` resource:
@@ -118,11 +116,9 @@ metadata:
   namespace: argocd
   labels:
     argocd.argoproj.io/secret-type: cluster
-    capi-to-argocd/owned: "true" 
-    foo: bar
-    my.domain.com/env: stage
-    taken-from-cluster-label.capi-to-argocd.foo: ""
-    taken-from-cluster-label.capi-to-argocd.my.domain.com/env: ""
+    capi-to-argocd/owned: "true"
+    label-k8s-io.foo: "bar"
+    label-k8s-io/env: "test"
 stringData:
 // ...
 ```

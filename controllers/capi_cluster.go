@@ -15,6 +15,7 @@ const CapiClusterSecretType corev1.SecretType = "cluster.x-k8s.io/secret"
 type CapiCluster struct {
 	Name       string     `yaml:"name"`
 	Namespace  string     `yaml:"namespace"`
+	Labels   map[string]string `yaml:"labels"`
 	KubeConfig KubeConfig `yaml:"kubeConfig"`
 }
 
@@ -52,12 +53,48 @@ type UserInfo struct {
 }
 
 // NewCapiCluster returns an empty CapiCluster type.
-func NewCapiCluster(name, namespace string) *CapiCluster {
+func NewCapiCluster(c *clusterv1.Cluster) *CapiCluster {
+	name := c.Name
+	namespace := c.Namespace
+	clusterLabels := c.Labels
+
+	takeAlongLabels := []string{}
+	// Check labels keys that begin with clusterTakeAlongKey and extract the value after the last '/
+	for k := range clusterLabels {
+		l, err := extractTakeAlongLabel(k)
+		if err != nil {
+			return nil, []string{err.Error()}
+		}
+		if l != "" {
+			takeAlongLabels = append(takeAlongLabels, l)
+		}
+	}
+
+	takeAlongLabelsMap := make(map[string]string)
+
+	errors := []string{}
+	if len(takeAlongLabels) > 0 {
+		for _, label := range takeAlongLabels {
+			if label != "" {
+				if _, ok := clusterLabels[label]; !ok {
+					errors = append(errors, fmt.Sprintf("take-along label '%s' not found on cluster resource: %s, namespace: %s. Ignoring", label, name, namespace))
+					continue
+				}
+				takeAlongLabelsMap[label] = clusterLabels[label]
+				takeAlongLabelsMap[fmt.Sprintf("%s%s", clusterTakenFromClusterKey, label)] = ""
+			}
+		}
+	}
+
 	return &CapiCluster{
 		Name:       name,
 		Namespace:  namespace,
 		KubeConfig: KubeConfig{},
 	}
+}
+
+// InheritLabels
+func (c *CapiCluster) InheritLabels() error {
 }
 
 // Unmarshal k8s secret into CapiCluster type.
@@ -87,4 +124,19 @@ func ValidateCapiSecret(s *corev1.Secret) error {
 // ValidateCapiNaming validates CAPI kubeconfig naming convention.
 func ValidateCapiNaming(n types.NamespacedName) bool {
 	return strings.HasSuffix(n.Name, "-kubeconfig") && !strings.HasSuffix(n.Name, "-user-kubeconfig")
+}
+
+// extractTakeAlongLabel returns the take-along label key from a cluster resource
+func extractTakeAlongLabel(key string) (string, error) {
+	if strings.HasPrefix(key, clusterTakeAlongKey) {
+		splitResult := strings.Split(key, clusterTakeAlongKey)
+		if len(splitResult) >= 2 {
+			if splitResult[1] != "" {
+				return splitResult[1], nil
+			}
+		}
+		return "", fmt.Errorf("invalid take-along label. missing key after '/': %s", key)
+	}
+	// Not an take-along label. Return nil
+	return "", nil
 }

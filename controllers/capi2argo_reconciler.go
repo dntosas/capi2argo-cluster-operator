@@ -27,6 +27,9 @@ var (
 	// EnableNamespacedNames represents a mode where the cluster name is always
 	// prepended by the cluster namespace in all generated secrets
 	EnableNamespacedNames bool
+
+	InheritLabelsEnabled bool
+	InheritLabelsPrefix string
 )
 
 func init() {
@@ -35,6 +38,11 @@ func init() {
 	ArgoNamespace = os.Getenv("ARGOCD_NAMESPACE")
 	if ArgoNamespace == "" {
 		ArgoNamespace = "argocd"
+	}
+
+	InheritLabelsPrefix = os.Getenv("CACO_INHERIT_LABEL_PREFIX")
+	if InheritLabelsPrefix != "" {
+		InheritLabelsEnabled = true
 	}
 
 	EnableGarbageCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_GARBAGE_COLLECTION"))
@@ -104,20 +112,19 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		return ctrl.Result{}, err
 	}
 
+	// Check if Cluster exists and fetch it.
+	cObj := &clusterv1.Cluster{}
+	err = r.Get(ctx, types.NamespacedName{Name: capiSecret.Labels[clusterv1.ClusterNameLabel], Namespace: req.Namespace}, cObj)
+	if err != nil {
+		log.Info("Failed to get Cluster object", "error", err)
+	}
+
 	// Construct CapiCluster from CapiSecret.
-	nn := strings.TrimSuffix(req.NamespacedName.Name, "-kubeconfig")
-	ns := req.NamespacedName.Namespace
-	capiCluster := NewCapiCluster(nn, ns)
+	capiCluster := NewCapiCluster(cObj)
 	err = capiCluster.Unmarshal(&capiSecret)
 	if err != nil {
 		log.Error(err, "Failed to unmarshal CapiCluster")
 		return ctrl.Result{}, err
-	}
-
-	clusterObject := &clusterv1.Cluster{}
-	err = r.Get(ctx, types.NamespacedName{Name: capiSecret.Labels[clusterv1.ClusterNameLabel], Namespace: req.Namespace}, clusterObject)
-	if err != nil {
-		log.Info("Failed to get Cluster object", "error", err)
 	}
 
 	// Construct ArgoCluster from CapiCluster and CapiSecret.Metadata.
@@ -193,45 +200,47 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			changed = true
 		}
 
-		// Check if take-along labels from argoCluster.TakeAlongLabels exist existingSecret.Labels and have the same values.
-		// If not set changed to true and update existingSecret.Labels.
-		log.Info("Checking for take-along labels")
-		log.Info("Take along labels", "labels", argoCluster.TakeAlongLabels)
-		argoSecretTakenAlongLabels := []string{}
-		for l := range argoCluster.TakeAlongLabels {
-			if strings.HasPrefix(l, clusterTakenFromClusterKey) {
-				key := strings.Split(l, clusterTakenFromClusterKey)[1]
-				argoSecretTakenAlongLabels = append(argoSecretTakenAlongLabels, key)
-			}
-		}
-		// Find difference between secrets prefixed with `taken-from-cluster-label.capi-to-argocd`
-		// between existingSecret.Labels and argoSecretTakenAlongLabels
-		// in order to handle removed 'take-from'-labels from the cluster resource
-		for k := range existingSecret.Labels {
-			if strings.HasPrefix(k, clusterTakenFromClusterKey) {
-				key := strings.Split(k, clusterTakenFromClusterKey)[1]
-				if !slices.Contains(argoSecretTakenAlongLabels, key) {
-					delete(existingSecret.Labels, k)
-					delete(existingSecret.Labels, key)
-					changed = true
+		if InheritLabelsEnabled {
+			// Check if take-along labels from argoCluster.TakeAlongLabels exist existingSecret.Labels and have the same values.
+			// If not set changed to true and update existingSecret.Labels.
+			log.Info("Checking for take-along labels")
+			log.Info("Take along labels", "labels", argoCluster.TakeAlongLabels)
+			argoSecretTakenAlongLabels := []string{}
+			for l := range argoCluster.TakeAlongLabels {
+				if strings.HasPrefix(l, InheritLabelsPrefix) {
+					key := strings.Split(l, clusterTakenFromClusterKey)[1]
+					argoSecretTakenAlongLabels = append(argoSecretTakenAlongLabels, key)
 				}
 			}
-		}
+			// Find difference between secrets prefixed with `taken-from-cluster-label.capi-to-argocd`
+			// between existingSecret.Labels and argoSecretTakenAlongLabels
+			// in order to handle removed 'take-from'-labels from the cluster resource
+			for k := range existingSecret.Labels {
+				if strings.HasPrefix(k, clusterTakenFromClusterKey) {
+					key := strings.Split(k, clusterTakenFromClusterKey)[1]
+					if !slices.Contains(argoSecretTakenAlongLabels, key) {
+						delete(existingSecret.Labels, k)
+						delete(existingSecret.Labels, key)
+						changed = true
+					}
+				}
+			}
 
-		// Update secrets labels with current values
-		for k, v := range argoCluster.TakeAlongLabels {
-			// check if label exists in map
-			if val, ok := existingSecret.Labels[k]; ok {
-				// check if label value is the same
-				if val != v {
-					log.Info("Updating value of label in ArgoSecret", "label", k, "value", val)
+			// Update secrets labels with current values
+			for k, v := range argoCluster.TakeAlongLabels {
+				// check if label exists in map
+				if val, ok := existingSecret.Labels[k]; ok {
+					// check if label value is the same
+					if val != v {
+						log.Info("Updating value of label in ArgoSecret", "label", k, "value", val)
+						existingSecret.Labels[k] = v
+						changed = true
+					}
+				} else {
+					log.Info("Adding missing label in ArgoSecret", "label", k)
 					existingSecret.Labels[k] = v
 					changed = true
 				}
-			} else {
-				log.Info("Adding missing label in ArgoSecret", "label", k)
-				existingSecret.Labels[k] = v
-				changed = true
 			}
 		}
 
