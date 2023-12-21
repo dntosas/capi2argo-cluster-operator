@@ -3,7 +3,7 @@ module github.com/dntosas/capi2argo-cluster-operator
 go 1.21
 
 require (
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.10
 	github.com/stretchr/testify v1.8.4
