@@ -50,6 +50,7 @@ type ArgoCluster struct {
 // ArgoConfig represents Argo Cluster.JSON.config
 type ArgoConfig struct {
 	TLSClientConfig ArgoTLS `json:"tlsClientConfig"`
+	BearerToken     string  `json:"bearerToken"`
 }
 
 // ArgoTLS represents Argo Cluster.JSON.config.tlsClientConfig
@@ -81,6 +82,7 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 		},
 		TakeAlongLabels: takeAlongLabels,
 		ClusterConfig: ArgoConfig{
+			BearerToken: c.KubeConfig.Users[0].User.Token,
 			TLSClientConfig: ArgoTLS{
 				CaData:   c.KubeConfig.Clusters[0].Cluster.CaData,
 				CertData: c.KubeConfig.Users[0].User.CertData,

@@ -48,6 +48,7 @@ type User struct {
 type UserInfo struct {
 	CertData string `yaml:"client-certificate-data"`
 	KeyData  string `yaml:"client-key-data"`
+	Token    string `yaml:"token"`
 }
 
 // NewCapiCluster returns an empty CapiCluster type.
@@ -85,5 +86,5 @@ func ValidateCapiSecret(s *corev1.Secret) error {
 
 // ValidateCapiNaming validates CAPI kubeconfig naming convention.
 func ValidateCapiNaming(n types.NamespacedName) bool {
-	return strings.HasSuffix(n.Name, "-kubeconfig")
+	return strings.HasSuffix(n.Name, "-kubeconfig") && !strings.HasSuffix(n.Name, "-user-kubeconfig")
 }
