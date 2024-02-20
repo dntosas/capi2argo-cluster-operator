@@ -3,9 +3,9 @@
 package controllers
 
 import (
-	b64 "encoding/base64"
+	// b64 "encoding/base64"
 	"encoding/json"
-	"errors"
+	// "errors"
 	"fmt"
 	"strings"
 
@@ -49,15 +49,15 @@ type ArgoCluster struct {
 
 // ArgoConfig represents Argo Cluster.JSON.config
 type ArgoConfig struct {
-	TLSClientConfig ArgoTLS `json:"tlsClientConfig"`
-	BearerToken     string  `json:"bearerToken"`
+	TLSClientConfig *ArgoTLS `json:"tlsClientConfig,omitempty"`
+	BearerToken     *string  `json:"bearerToken,omitempty"`
 }
 
 // ArgoTLS represents Argo Cluster.JSON.config.tlsClientConfig
 type ArgoTLS struct {
-	CaData   string `json:"caData"`
-	CertData string `json:"certData"`
-	KeyData  string `json:"keyData"`
+	CaData   *string `json:"caData,omitempty"`
+	CertData *string `json:"certData,omitempty"`
+	KeyData  *string `json:"keyData,omitempty"`
 }
 
 // NewArgoCluster return a new ArgoCluster
@@ -83,8 +83,8 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 		TakeAlongLabels: takeAlongLabels,
 		ClusterConfig: ArgoConfig{
 			BearerToken: c.KubeConfig.Users[0].User.Token,
-			TLSClientConfig: ArgoTLS{
-				CaData:   c.KubeConfig.Clusters[0].Cluster.CaData,
+			TLSClientConfig: &ArgoTLS{
+				CaData:   &c.KubeConfig.Clusters[0].Cluster.CaData,
 				CertData: c.KubeConfig.Users[0].User.CertData,
 				KeyData:  c.KubeConfig.Users[0].User.KeyData,
 			},
@@ -162,9 +162,9 @@ func BuildClusterName(s string, namespace string) string {
 
 // ConvertToSecret converts an ArgoCluster into k8s native secret object.
 func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
-	if err := ValidateClusterTLSConfig(&a.ClusterConfig.TLSClientConfig); err != nil {
-		return nil, err
-	}
+	// if err := ValidateClusterTLSConfig(&a.ClusterConfig.TLSClientConfig); err != nil {
+	// 	return nil, err
+	// }
 	c, err := json.Marshal(a.ClusterConfig)
 	if err != nil {
 		return nil, err
@@ -201,16 +201,16 @@ func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
 }
 
 // ValidateClusterTLSConfig validates that we got proper based64 k/v fields.
-func ValidateClusterTLSConfig(a *ArgoTLS) error {
-	for _, v := range []string{a.CaData, a.CertData, a.KeyData} {
-		// Check if field.value is empty
-		if v == "" {
-			return errors.New("missing key on ArgoTLS config")
-		}
-		// Check if field.value is valid b64 encoded string
-		if _, err := b64.StdEncoding.DecodeString(v); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// func ValidateClusterTLSConfig(a *ArgoTLS) error {
+// 	for _, v := range []string{a.CaData, a.CertData, a.KeyData} {
+// 		// Check if field.value is empty
+// 		if v == "" {
+// 			return errors.New("missing key on ArgoTLS config")
+// 		}
+// 		// Check if field.value is valid b64 encoded string
+// 		if _, err := b64.StdEncoding.DecodeString(v); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }

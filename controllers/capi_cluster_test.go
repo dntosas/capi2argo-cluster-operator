@@ -35,6 +35,7 @@ func TestUnmarshal(t *testing.T) {
 				"CaData":      "",
 				"KeyData":     "dGVzdGVyCg==",
 				"Server":      "https://kube-cluster-test.domain.com:6443",
+				"Token": "e",
 			},
 		},
 		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey, name, namespace), true,
@@ -65,14 +66,24 @@ func TestUnmarshal(t *testing.T) {
 					assert.Equal(t, tt.testExpectedValues["Server"], c.KubeConfig.Clusters[0].Cluster.Server)
 					assert.Equal(t, tt.testExpectedValues["UserName"], c.KubeConfig.Users[0].Name)
 					// Check that we get proper binary values for specific fields.
-					assert.Eventually(t, func() bool {
-						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Users[0].User.CertData)
-						return err == nil
-					}, time.Second, 100*time.Millisecond)
-					assert.Eventually(t, func() bool {
-						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Users[0].User.KeyData)
-						return err == nil
-					}, time.Second, 100*time.Millisecond)
+					if c.KubeConfig.Users[0].User.CertData != nil {
+						assert.Eventually(t, func() bool {
+							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.CertData)
+							return err == nil
+						}, time.Second, 100*time.Millisecond)
+					}
+					if c.KubeConfig.Users[0].User.KeyData != nil {
+						assert.Eventually(t, func() bool {
+							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.KeyData)
+							return err == nil
+						}, time.Second, 100*time.Millisecond)
+					}
+					if c.KubeConfig.Users[0].User.Token != nil {
+						assert.Eventually(t, func() bool {
+							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.Token)
+							return err == nil
+						}, time.Second, 100*time.Millisecond)
+					}
 					assert.Eventually(t, func() bool {
 						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Clusters[0].Cluster.CaData)
 						return err == nil
