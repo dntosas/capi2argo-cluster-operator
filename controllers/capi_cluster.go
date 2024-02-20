@@ -46,9 +46,9 @@ type User struct {
 
 // UserInfo represents kubeconfig.[]Users.User fields.
 type UserInfo struct {
-	CertData string `yaml:"client-certificate-data"`
-	KeyData  string `yaml:"client-key-data"`
-	Token    string `yaml:"token"`
+	CertData *string `yaml:"client-certificate-data,omitempty"`
+	KeyData  *string `yaml:"client-key-data,omitempty"`
+	Token    *string `yaml:"token,omitempty"`
 }
 
 // NewCapiCluster returns an empty CapiCluster type.

@@ -12,7 +12,7 @@ import (
 // MockCapiKubeConfig returns a based64-encoded string that
 // represents a valid KubeConfig definition.
 func MockCapiKubeConfig() string {
-	RawKubeConfig, err := os.ReadFile("../tests/capi-kubeconfig.yaml")
+	RawKubeConfig, err := os.ReadFile("../tests/capi-kubeconfig-eks.yaml")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,10 +86,11 @@ func MockArgoCluster(validMock bool) *ArgoCluster {
 			"capi-to-argocd/cluster-namespace":   "test",
 		},
 		ClusterConfig: ArgoConfig{
-			TLSClientConfig: ArgoTLS{
-				CaData:   v,
-				CertData: v,
-				KeyData:  v,
+			BearerToken: &v,
+			TLSClientConfig: &ArgoTLS{
+				CaData:   &v,
+				CertData: &v,
+				KeyData:  &v,
 			},
 		},
 	}
