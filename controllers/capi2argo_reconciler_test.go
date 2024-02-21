@@ -47,7 +47,7 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 	K8sManager, err := ctrl.NewManager(Cfg, ctrl.Options{
-		Host:   "0.0.0.0",
+		// Host:   "0.0.0.0",
 		Scheme: scheme.Scheme,
 	})
 	Expect(err).ToNot(HaveOccurred())

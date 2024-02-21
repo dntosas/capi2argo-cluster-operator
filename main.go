@@ -73,14 +73,14 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "37cf8926.capi-cluster.x-argoproj.io",
-		SyncPeriod:             &syncDuration,
-		DryRunClient:           enableDryRun,
+		// MetricsBindAddress:     metricsAddr,
+		// Port:                   9443,
+		// SyncPeriod:             &syncDuration,
+		// DryRunClient:           enableDryRun,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
