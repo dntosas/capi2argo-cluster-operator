@@ -30,7 +30,7 @@ jobs:
         run: make vet
 
       - name: Run go lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
         with:
           version: v1.54.2
           args: --timeout 5m --enable revive,gofmt,exportloopref --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
