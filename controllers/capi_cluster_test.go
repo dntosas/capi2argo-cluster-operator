@@ -35,7 +35,7 @@ func TestUnmarshal(t *testing.T) {
 				"CaData":      "",
 				"KeyData":     "dGVzdGVyCg==",
 				"Server":      "https://kube-cluster-test.domain.com:6443",
-				"Token": "e",
+				"Token":       "e",
 			},
 		},
 		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey, name, namespace), true,
