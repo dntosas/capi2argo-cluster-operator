@@ -11,7 +11,7 @@ require (
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
-	sigs.k8s.io/cluster-api v1.6.2
+	sigs.k8s.io/cluster-api v1.6.3
 	sigs.k8s.io/controller-runtime v0.17.2
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -60,7 +60,7 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
