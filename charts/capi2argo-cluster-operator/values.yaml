@@ -12,7 +12,7 @@ replicaCount: 1
 image:
   registry: ghcr.io
   repository: dntosas/capi2argo-cluster-operator
-  tag: v0.2.1
+  tag: v1.0.0
   pullPolicy: Always
   pullSecrets: []
 
@@ -64,7 +64,7 @@ containerSecurityContext:
   capabilities:
     drop:
     - ALL
-    
+
 podSecurityContext:
   enabled: true
   fsGroup: 1001

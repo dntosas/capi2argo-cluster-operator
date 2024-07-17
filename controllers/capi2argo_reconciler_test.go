@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"context"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,25 +32,25 @@ var (
 )
 
 func TestControllers(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Capi2ArgoClusterOperator Controller Suite")
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "Capi2ArgoClusterOperator Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
-	By("bootstrapping test environment")
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+var _ = ginkgo.BeforeSuite(func() {
+	ginkgo.By("bootstrapping test environment")
+	logf.SetLogger(zap.New(zap.WriteTo(ginkgo.GinkgoWriter), zap.UseDevMode(true)))
 
 	TestEnv = &envtest.Environment{}
 	Cfg, err := TestEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(Cfg).NotTo(BeNil())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(Cfg).NotTo(gomega.BeNil())
 
 	//+kubebuilder:scaffold:scheme
 	K8sManager, err := ctrl.NewManager(Cfg, ctrl.Options{
 		// Host:   "0.0.0.0",
 		Scheme: scheme.Scheme,
 	})
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	C2A = &Capi2Argo{
 		Client: K8sManager.GetClient(),
@@ -58,21 +58,21 @@ var _ = BeforeSuite(func() {
 		Scheme: K8sManager.GetScheme(),
 	}
 	err = C2A.SetupWithManager(K8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	Ctx, Cancel = context.WithCancel(context.TODO())
 	go func() {
-		defer GinkgoRecover()
+		defer ginkgo.GinkgoRecover()
 		err = K8sManager.Start(Ctx)
-		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run manager")
 	}()
 
 	K8sClient = K8sManager.GetClient()
-	Expect(K8sClient).ToNot(BeNil())
+	gomega.Expect(K8sClient).ToNot(gomega.BeNil())
 
 }, 60)
 
-var _ = AfterSuite(func() {})
+var _ = ginkgo.AfterSuite(func() {})
 
 func TestReconcile(t *testing.T) {
 	t.Parallel()
@@ -130,9 +130,9 @@ func TestReconcile(t *testing.T) {
 	t.Cleanup(func() {
 		time.Sleep(5 * time.Second)
 		Cancel()
-		By("tearing down the test environment")
+		ginkgo.By("tearing down the test environment")
 		err = TestEnv.Stop()
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 }
 
