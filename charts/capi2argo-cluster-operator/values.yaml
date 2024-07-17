@@ -54,7 +54,17 @@ rbac:
   clusterRole: true
   apiVersion: v1
 
-containerSecurityContext: {}
+containerSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  privileged: false
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  capabilities:
+    drop:
+    - ALL
+    
 podSecurityContext:
   enabled: true
   fsGroup: 1001
