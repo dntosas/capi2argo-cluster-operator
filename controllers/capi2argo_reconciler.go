@@ -120,6 +120,12 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		log.Info("Failed to get Cluster object", "error", err)
 	}
 
+	// Check if the cluster has the ignore label
+	if validateClusterIgnoreLabel(clusterObject) {
+		log.Info("The cluster has label to be ignored, skipping...")
+		return ctrl.Result{}, nil
+	}
+
 	// Construct ArgoCluster from CapiCluster and CapiSecret.Metadata.
 	argoCluster, err := NewArgoCluster(capiCluster, &capiSecret, clusterObject)
 	if err != nil {
