@@ -39,18 +39,35 @@ vet: ## Run go vet against code.
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
-	golangci-lint run --enable revive,gofmt,exportloopref --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
+	golangci-lint run --enable revive,gofmt,exportloopref --exclude-use-default=false --build-tags integration
 
 .PHONY: test
 test: envtest ## Run go tests against code.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -mod=vendor `go list ./...` -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v `go list ./...` -coverprofile cover.out
 
 .PHONY: ci
 ci: fmt vet lint test ## Run go fmt/vet/lint/tests against the code.
 
-.PHONY: modsync
-modsync: ## Run go mod tidy && vendor.
-	go mod tidy && go mod vendor
+##@ verify
+
+.PHONY: tidy
+tidy: ## Run go mod tidy to ensure modules are up to date
+	go mod tidy
+
+.PHONY: verify
+verify: verify ## verify the manifests and the code.
+	$(MAKE) verify-modules
+
+.PHONY: verify-modules
+verify-modules: tidy ## Verify go modules are up to date
+	@if !(git diff --quiet HEAD -- go.sum go.mod); then \
+		git diff; \
+		echo "go module files are out of date"; exit 1; \
+	fi
+	@if (find . -name 'go.mod' | xargs -n1 grep -q -i 'k8s.io/client-go.*+incompatible'); then \
+		find . -name "go.mod" -exec grep -i 'k8s.io/client-go.*+incompatible' {} \; -print; \
+		echo "go module contains an incompatible client-go version"; exit 1; \
+	fi
 
 .PHONY: helm-docs
 helm-docs:
@@ -60,15 +77,15 @@ helm-docs:
 
 .PHONY: build
 build: ## Build capi-to-argocd-operator binary.
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -mod=vendor ${GOBUILD_OPTS} -o ${PROJECT} main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a ${GOBUILD_OPTS} -o ${PROJECT} main.go
 
 .PHONY: build-darwin
 build-darwin: ## Build capi-to-argocd-operator binary.
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -a -mod=vendor ${GOBUILD_OPTS} -o ${PROJECT} main.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -a ${GOBUILD_OPTS} -o ${PROJECT} main.go
 
 .PHONY: run
 run: ## Run the controller from your host against your current kconfig context.
-	go run -mod=vendor ./main.go
+	go run ./main.go
 
 .PHONY: docker-build-dev
 docker-build-dev: build ## Build docker image with the manager.
