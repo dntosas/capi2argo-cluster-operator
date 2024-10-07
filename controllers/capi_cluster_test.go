@@ -50,7 +50,6 @@ func TestUnmarshal(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 			c := NewCapiCluster(name, namespace)
@@ -130,7 +129,6 @@ func TestValidateCapiSecret(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 			err := ValidateCapiSecret(tt.testMock)

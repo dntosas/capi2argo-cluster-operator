@@ -26,7 +26,6 @@ func TestExtractTakeAlongLabel(t *testing.T) {
 		{"Test with standard label", "mylabel", false, ""},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 			v, err := extractTakeAlongLabel(tt.testMock)
@@ -125,7 +124,6 @@ func TestBuildTakeAlongLabels(t *testing.T) {
 			}},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 			v, errors := buildTakeAlongLabels(tt.testMock)
@@ -163,7 +161,6 @@ func TestConvertToSecret(t *testing.T) {
 		// {"test type with non-valid fields", MockArgoCluster(!validMock), true, nil},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 			s, err := tt.testMock.ConvertToSecret()
@@ -250,7 +247,6 @@ func TestBuildNamespacedName(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.testName, func(t *testing.T) {
 			oldConf := EnableNamespacedNames
 			EnableNamespacedNames = tt.testEnableNamespacedNames
