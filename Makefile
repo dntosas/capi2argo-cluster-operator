@@ -39,7 +39,7 @@ vet: ## Run go vet against code.
 
 .PHONY: lint
 lint: ## Run golangci-lint against code.
-	golangci-lint run --enable revive,gofmt,exportloopref --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
+	golangci-lint run --enable revive,gofmt,copyloopvar --exclude-use-default=false --modules-download-mode=vendor --build-tags integration
 
 .PHONY: test
 test: envtest ## Run go tests against code.
