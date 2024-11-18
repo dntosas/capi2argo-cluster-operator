@@ -27,6 +27,7 @@ var (
 const (
 	clusterTakeAlongKey        = "take-along-label.capi-to-argocd."
 	clusterTakenFromClusterKey = "taken-from-cluster-label.capi-to-argocd."
+	clusterIgnoreKey           = "ignore-cluster.capi-to-argocd"
 )
 
 // GetArgoCommonLabels holds a map of labels that reconciled objects must have.
@@ -105,6 +106,18 @@ func extractTakeAlongLabel(key string) (string, error) {
 	}
 	// Not an take-along label. Return nil
 	return "", nil
+}
+
+// validateClusterIgnoreLabel returns true when the cluster has the clusterIgnoreKey label
+func validateClusterIgnoreLabel(cluster *clusterv1.Cluster) bool {
+	clusterLabels := cluster.Labels
+
+	for k := range clusterLabels {
+		if k == clusterIgnoreKey {
+			return true
+		}
+	}
+	return false
 }
 
 // buildTakeAlongLabels returns a list of valid take-along labels from a cluster
