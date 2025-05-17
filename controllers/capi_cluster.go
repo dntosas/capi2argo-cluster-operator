@@ -65,11 +65,12 @@ func (c *CapiCluster) Unmarshal(s *corev1.Secret) error {
 	if err := ValidateCapiSecret(s); err != nil {
 		return err
 	}
+
 	err := yaml.Unmarshal(s.Data["value"], &c.KubeConfig)
 	if err != nil || len(c.KubeConfig.Clusters) == 0 || len(c.KubeConfig.Users) == 0 || c.KubeConfig.APIVersion != "v1" || c.KubeConfig.Kind != "Config" {
 		return errors.New("invalid KubeConfig")
-
 	}
+
 	return nil
 }
 
@@ -78,9 +79,11 @@ func ValidateCapiSecret(s *corev1.Secret) error {
 	if s.Type != CapiClusterSecretType {
 		return errors.New("wrong secret type")
 	}
+
 	if _, ok := s.Data["value"]; !ok {
 		return errors.New("wrong secret key")
 	}
+
 	return nil
 }
 

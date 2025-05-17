@@ -21,11 +21,11 @@ import (
 )
 
 var (
-	// EnableGarbageCollection enables experimental GC feature
+	// EnableGarbageCollection enables experimental GC feature.
 	EnableGarbageCollection bool
 
 	// EnableNamespacedNames represents a mode where the cluster name is always
-	// prepended by the cluster namespace in all generated secrets
+	// prepended by the cluster namespace in all generated secrets.
 	EnableNamespacedNames bool
 )
 
@@ -41,7 +41,7 @@ func init() {
 	EnableNamespacedNames, _ = strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
 }
 
-// Capi2Argo reconciles a Secret object
+// Capi2Argo reconciles a Secret object.
 type Capi2Argo struct {
 	client.Client
 	Log    logr.Logger
@@ -64,6 +64,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	// Fetch CapiSecret
 	var capiSecret corev1.Secret
+
 	err := r.Get(ctx, req.NamespacedName, &capiSecret)
 	if err != nil {
 		// If we get error reading the object - requeue the request.
@@ -79,21 +80,28 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			}
 			listOption := client.MatchingLabels(labelSelector)
 			secretList := &corev1.SecretList{}
+
 			err = r.List(context.Background(), secretList, listOption)
 			if err != nil {
 				log.Error(err, "Failed to list Cluster Secrets")
+
 				return ctrl.Result{}, err
 			}
+
 			if err := r.Delete(ctx, &secretList.Items[0]); err != nil {
 				log.Error(err, "Failed to delete ArgoSecret")
+
 				return ctrl.Result{}, err
 			}
+
 			log.Info("Deleted successfully of ArgoSecret")
+
 			return ctrl.Result{}, nil
 		}
 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
 	log.Info("Fetched CapiSecret")
 
 	// Validate CapiSecret.type is matching CAPI convention.
@@ -101,6 +109,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	err = ValidateCapiSecret(&capiSecret)
 	if err != nil {
 		log.Info("Ignoring secret as it's missing proper CAPI type", "type", capiSecret.Type)
+
 		return ctrl.Result{}, err
 	}
 
@@ -108,13 +117,16 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	nn := strings.TrimSuffix(req.NamespacedName.Name, "-kubeconfig")
 	ns := req.NamespacedName.Namespace
 	capiCluster := NewCapiCluster(nn, ns)
+
 	err = capiCluster.Unmarshal(&capiSecret)
 	if err != nil {
 		log.Error(err, "Failed to unmarshal CapiCluster")
+
 		return ctrl.Result{}, err
 	}
 
 	clusterObject := &clusterv1.Cluster{}
+
 	err = r.Get(ctx, types.NamespacedName{Name: capiSecret.Labels[clusterv1.ClusterNameLabel], Namespace: req.Namespace}, clusterObject)
 	if err != nil {
 		log.Info("Failed to get Cluster object", "error", err)
@@ -123,6 +135,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	// Check if the cluster has the ignore label
 	if validateClusterIgnoreLabel(clusterObject) {
 		log.Info("The cluster has label to be ignored, skipping...")
+
 		return ctrl.Result{}, nil
 	}
 
@@ -130,31 +143,38 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	argoCluster, err := NewArgoCluster(capiCluster, &capiSecret, clusterObject)
 	if err != nil {
 		log.Error(err, "Failed to construct ArgoCluster")
+
 		return ctrl.Result{}, err
 	}
 
 	// Convert ArgoCluster into ArgoSecret to work natively on k8s objects.
 	log = r.Log.WithValues("cluster", argoCluster.NamespacedName)
 	argoSecret, err := argoCluster.ConvertToSecret()
+
 	if err != nil {
 		log.Error(err, "Failed to convert ArgoCluster to ArgoSecret")
+
 		return ctrl.Result{}, err
 	}
 
 	// Represent a possible existing ArgoSecret.
 	var existingSecret corev1.Secret
+
 	var exists bool
 
 	// Check if ArgoSecret exists.
 	err = r.Get(ctx, argoCluster.NamespacedName, &existingSecret)
 	if errors.IsNotFound(err) {
 		exists = false
+
 		log.Info("ArgoSecret does not exists, creating..")
 	} else if err == nil {
 		exists = true
+
 		log.Info("ArgoSecret exists, checking state..")
 	} else {
 		log.Error(err, "Failed to fetch ArgoSecret to check if exists")
+
 		return ctrl.Result{}, err
 	}
 
@@ -168,22 +188,28 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	case false:
 		if err := r.Create(ctx, argoSecret); err != nil {
 			log.Error(err, "Failed to create ArgoSecret")
+
 			return ctrl.Result{}, err
 		}
+
 		log.Info("Created new ArgoSecret")
+
 		return ctrl.Result{}, nil
 
 	case true:
-
 		log.Info("Checking if ArgoSecret is managed by the Controller")
+
 		err := ValidateObjectOwner(existingSecret)
 		if err != nil {
 			log.Info("Not managed by Controller, skipping...")
+
 			return ctrl.Result{}, nil
 		}
 
 		log.Info("Checking if ArgoSecret is out-of-sync with")
+
 		changed := false
+
 		if !bytes.Equal(existingSecret.Data["name"], []byte(argoCluster.ClusterName)) {
 			existingSecret.Data["name"] = []byte(argoCluster.ClusterName)
 			changed = true
@@ -203,7 +229,9 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		// If not set changed to true and update existingSecret.Labels.
 		log.Info("Checking for take-along labels")
 		log.Info("Take along labels", "labels", argoCluster.TakeAlongLabels)
+
 		argoSecretTakenAlongLabels := []string{}
+
 		for l := range argoCluster.TakeAlongLabels {
 			if strings.HasPrefix(l, clusterTakenFromClusterKey) {
 				key := strings.Split(l, clusterTakenFromClusterKey)[1]
@@ -219,6 +247,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 				if !slices.Contains(argoSecretTakenAlongLabels, key) {
 					delete(existingSecret.Labels, k)
 					delete(existingSecret.Labels, key)
+
 					changed = true
 				}
 			}
@@ -231,11 +260,13 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 				// check if label value is the same
 				if val != v {
 					log.Info("Updating value of label in ArgoSecret", "label", k, "value", val)
+
 					existingSecret.Labels[k] = v
 					changed = true
 				}
 			} else {
 				log.Info("Adding missing label in ArgoSecret", "label", k)
+
 				existingSecret.Labels[k] = v
 				changed = true
 			}
@@ -243,15 +274,20 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 		if changed {
 			log.Info("Updating out-of-sync ArgoSecret")
+
 			if err := r.Update(ctx, &existingSecret); err != nil {
 				log.Error(err, "Failed to update ArgoSecret")
+
 				return ctrl.Result{}, err
 			}
+
 			log.Info("Updated successfully of ArgoSecret")
+
 			return ctrl.Result{}, nil
 		}
 
 		log.Info("ArgoSecret is in-sync with CapiCluster, skipping...")
+
 		return ctrl.Result{}, nil
 	}
 
@@ -270,5 +306,6 @@ func ValidateObjectOwner(s corev1.Secret) error {
 	if s.ObjectMeta.Labels["capi-to-argocd/owned"] != "true" {
 		return goErr.New("not owned by CACO")
 	}
+
 	return nil
 }

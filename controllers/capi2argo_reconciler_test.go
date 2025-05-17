@@ -76,6 +76,7 @@ var _ = ginkgo.AfterSuite(func() {})
 
 func TestReconcile(t *testing.T) {
 	t.Parallel()
+
 	err := MockReconcileEnv()
 	assert.Nil(t, err)
 
@@ -109,16 +110,20 @@ func TestReconcile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
+
 			ctxm := context.Background()
+
 			r, err := C2A.Reconcile(ctxm, tt.testMock)
 			if !tt.testExpectedError {
 				assert.NotNil(t, r)
 				assert.Nil(t, err)
+
 				if tt.testExpectedValues != nil {
 					assert.Nil(t, err)
 				}
 			} else {
 				assert.NotNil(t, err)
+
 				if assert.Error(t, err) {
 					assert.Equal(t, tt.testExpectedValues["ErrorMsg"], err.Error())
 				}
@@ -130,6 +135,7 @@ func TestReconcile(t *testing.T) {
 		time.Sleep(5 * time.Second)
 		Cancel()
 		ginkgo.By("tearing down the test environment")
+
 		err = TestEnv.Stop()
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
@@ -158,6 +164,7 @@ func MockReconcileReq(name string, namespace string) reconcile.Request {
 			Name:      name,
 		},
 	}
+
 	return r
 }
 
@@ -175,6 +182,7 @@ func MockReconcileEnv() error {
 	validMock := true
 	validType := true
 	validKey := true
+
 	if err := K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, validKey, "valid-kubeconfig", TestNamespace)); err != nil {
 		return err
 	}
