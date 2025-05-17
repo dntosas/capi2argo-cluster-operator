@@ -1,0 +1,10 @@
+version: "2"
+linters:
+  default: fast
+  enable:
+    - gosec
+  disable:
+    - godox
+    - lll
+    - depguard
+    - mnd

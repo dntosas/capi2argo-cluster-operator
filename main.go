@@ -51,11 +51,17 @@ func init() {
 
 func main() {
 	var metricsAddr string
+
 	var enableLeaderElection bool
+
 	var enableDryRun bool
+
 	var enableDebugMode bool
+
 	var probeAddr string
+
 	var syncDuration time.Duration
+
 	defaultSyncDuration, _ := time.ParseDuration("45s")
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -64,6 +70,7 @@ func main() {
 	flag.BoolVar(&enableDryRun, "dry-run", false, "Run in dry-run mode.")
 	flag.BoolVar(&enableDebugMode, "debug", false, "Run in debug mode.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. "+"Use this when deploying multiple pods so to ensure there is only one active controller manager.")
+
 	opts := zap.Options{
 		Development: enableDebugMode,
 	}
@@ -93,6 +100,7 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
+
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
@@ -108,6 +116,7 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

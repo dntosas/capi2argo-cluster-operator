@@ -31,8 +31,11 @@ func MockCapiSecret(validMock bool, validType bool, validKey bool, name string, 
 
 	// If validType=true, return type with proper .type
 	var t corev1.SecretType
+
 	var vType corev1.SecretType = "cluster.x-k8s.io/secret"
+
 	var iType corev1.SecretType = "tester/tester"
+
 	if validType {
 		t = vType
 	} else {
@@ -101,11 +104,13 @@ func MockArgoCluster(validMock bool) *ArgoCluster {
 func MockArgoSecret() *corev1.Secret {
 	a := MockArgoCluster(true)
 	s, _ := a.ConvertToSecret()
+
 	return s
 }
 
-// IsBase64 returns true if given value is valid b64-encoded stream
+// IsBase64 returns true if given value is valid b64-encoded stream.
 func IsBase64(s string) bool {
 	_, err := b64.StdEncoding.DecodeString(s)
+
 	return err == nil
 }

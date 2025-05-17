@@ -52,11 +52,14 @@ func TestUnmarshal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
+
 			c := NewCapiCluster(name, namespace)
 			err := c.Unmarshal(tt.testMock)
+
 			if !tt.testExpectedError {
 				assert.NotNil(t, c)
 				assert.Nil(t, err)
+
 				if tt.testExpectedValues != nil {
 					// Check expected values.
 					assert.Equal(t, tt.testExpectedValues["Kind"], c.KubeConfig.Kind)
@@ -68,23 +71,30 @@ func TestUnmarshal(t *testing.T) {
 					if c.KubeConfig.Users[0].User.CertData != nil {
 						assert.Eventually(t, func() bool {
 							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.CertData)
+
 							return err == nil
 						}, time.Second, 100*time.Millisecond)
 					}
+
 					if c.KubeConfig.Users[0].User.KeyData != nil {
 						assert.Eventually(t, func() bool {
 							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.KeyData)
+
 							return err == nil
 						}, time.Second, 100*time.Millisecond)
 					}
+
 					if c.KubeConfig.Users[0].User.Token != nil {
 						assert.Eventually(t, func() bool {
 							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.Token)
+
 							return err == nil
 						}, time.Second, 100*time.Millisecond)
 					}
+
 					assert.Eventually(t, func() bool {
 						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Clusters[0].Cluster.CaData)
+
 						return err == nil
 					}, time.Second, 100*time.Millisecond)
 					// Get at least one cluster/user per secret.
@@ -95,6 +105,7 @@ func TestUnmarshal(t *testing.T) {
 				}
 			} else {
 				assert.NotNil(t, err)
+
 				if assert.Error(t, err) {
 					assert.Equal(t, tt.testExpectedValues["ErrorMsg"], err.Error())
 				}
@@ -110,6 +121,7 @@ func TestNewCapiCluster(t *testing.T) {
 
 func TestValidateCapiSecret(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		testName           string
 		testMock           *corev1.Secret
@@ -131,11 +143,13 @@ func TestValidateCapiSecret(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
+
 			err := ValidateCapiSecret(tt.testMock)
 			if !tt.testExpectedError {
 				assert.Nil(t, err)
 			} else {
 				assert.NotNil(t, err)
+
 				if tt.testExpectedValues != nil {
 					if assert.Error(t, err) {
 						assert.Equal(t, tt.testExpectedValues["ErrorMsg"], err.Error())

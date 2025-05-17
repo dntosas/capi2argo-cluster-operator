@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	// b64 "encoding/base64"
+	// b64 "encoding/base64".
 	"fmt"
 	"testing"
 
@@ -14,6 +14,7 @@ import (
 
 func TestExtractTakeAlongLabel(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		testName           string
 		testMock           string
@@ -28,6 +29,7 @@ func TestExtractTakeAlongLabel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
+
 			v, err := extractTakeAlongLabel(tt.testMock)
 			if tt.testExpectedError {
 				assert.NotNil(t, err)
@@ -41,6 +43,7 @@ func TestExtractTakeAlongLabel(t *testing.T) {
 
 func TestBuildTakeAlongLabels(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		testName           string
 		testMock           *clusterv1.Cluster
@@ -126,12 +129,14 @@ func TestBuildTakeAlongLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
+
 			v, errors := buildTakeAlongLabels(tt.testMock)
 			if tt.testExpectedError {
 				assert.NotEmpty(t, errors)
 			} else {
 				assert.Empty(t, errors)
 			}
+
 			assert.Equal(t, v, tt.testExpectedValues)
 		})
 	}
@@ -139,7 +144,9 @@ func TestBuildTakeAlongLabels(t *testing.T) {
 
 func TestConvertToSecret(t *testing.T) {
 	t.Parallel()
+
 	validMock := true
+
 	tests := []struct {
 		testName           string
 		testMock           *ArgoCluster
@@ -163,10 +170,12 @@ func TestConvertToSecret(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
+
 			s, err := tt.testMock.ConvertToSecret()
 			if !tt.testExpectedError {
 				assert.NotNil(t, s)
 				assert.Nil(t, err)
+
 				if tt.testExpectedValues != nil {
 					assert.Equal(t, tt.testExpectedValues["Kind"], s.TypeMeta.Kind)
 					assert.Equal(t, tt.testExpectedValues["APIVersion"], s.TypeMeta.APIVersion)
@@ -219,6 +228,7 @@ func TestConvertToSecret(t *testing.T) {
 
 func TestBuildNamespacedName(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		testName                  string
 		testMock                  string
@@ -252,6 +262,7 @@ func TestBuildNamespacedName(t *testing.T) {
 			EnableNamespacedNames = tt.testEnableNamespacedNames
 			s := BuildNamespacedName(tt.testMock, tt.testNamespace)
 			EnableNamespacedNames = oldConf
+
 			if !tt.testExpectedError {
 				assert.NotNil(t, s)
 				assert.Equal(t, tt.testExpectedValues.Name, s.Name)

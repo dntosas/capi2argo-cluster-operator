@@ -3,9 +3,9 @@
 package controllers
 
 import (
-	// b64 "encoding/base64"
+	// b64 "encoding/base64".
 	"encoding/json"
-	// "errors"
+	// "errors".
 	"fmt"
 	"strings"
 
@@ -20,7 +20,7 @@ import (
 var (
 	// ArgoNamespace represents the Namespace that hold ArgoCluster secrets.
 	ArgoNamespace string
-	// TestKubeConfig represents
+	// TestKubeConfig represents.
 	TestKubeConfig *rest.Config
 )
 
@@ -38,7 +38,7 @@ func GetArgoCommonLabels() map[string]string {
 	}
 }
 
-// ArgoCluster holds all information needed for CAPI --> Argo Cluster conversion
+// ArgoCluster holds all information needed for CAPI --> Argo Cluster conversion.
 type ArgoCluster struct {
 	NamespacedName  types.NamespacedName
 	ClusterName     string
@@ -48,31 +48,34 @@ type ArgoCluster struct {
 	ClusterConfig   ArgoConfig
 }
 
-// ArgoConfig represents Argo Cluster.JSON.config
+// ArgoConfig represents Argo Cluster.JSON.config.
 type ArgoConfig struct {
 	TLSClientConfig *ArgoTLS `json:"tlsClientConfig,omitempty"`
 	BearerToken     *string  `json:"bearerToken,omitempty"`
 }
 
-// ArgoTLS represents Argo Cluster.JSON.config.tlsClientConfig
+// ArgoTLS represents Argo Cluster.JSON.config.tlsClientConfig.
 type ArgoTLS struct {
 	CaData   *string `json:"caData,omitempty"`
 	CertData *string `json:"certData,omitempty"`
 	KeyData  *string `json:"keyData,omitempty"`
 }
 
-// NewArgoCluster return a new ArgoCluster
+// NewArgoCluster return a new ArgoCluster.
 func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster) (*ArgoCluster, error) {
 	log := ctrl.Log.WithName("argoCluster")
 
 	takeAlongLabels := map[string]string{}
+
 	var errList []string
+
 	if cluster != nil {
 		takeAlongLabels, errList = buildTakeAlongLabels(cluster)
 		for _, e := range errList {
 			log.Info(e)
 		}
 	}
+
 	return &ArgoCluster{
 		NamespacedName: BuildNamespacedName(s.ObjectMeta.Name, s.ObjectMeta.Namespace),
 		ClusterName:    BuildClusterName(c.KubeConfig.Clusters[0].Name, s.ObjectMeta.Namespace),
@@ -93,7 +96,7 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 	}, nil
 }
 
-// extractTakeAlongLabel returns the take-along label key from a cluster resource
+// extractTakeAlongLabel returns the take-along label key from a cluster resource.
 func extractTakeAlongLabel(key string) (string, error) {
 	if strings.HasPrefix(key, clusterTakeAlongKey) {
 		splitResult := strings.Split(key, clusterTakeAlongKey)
@@ -102,13 +105,14 @@ func extractTakeAlongLabel(key string) (string, error) {
 				return splitResult[1], nil
 			}
 		}
+
 		return "", fmt.Errorf("invalid take-along label. missing key after '/': %s", key)
 	}
 	// Not an take-along label. Return nil
 	return "", nil
 }
 
-// validateClusterIgnoreLabel returns true when the cluster has the clusterIgnoreKey label
+// validateClusterIgnoreLabel returns true when the cluster has the clusterIgnoreKey label.
 func validateClusterIgnoreLabel(cluster *clusterv1.Cluster) bool {
 	clusterLabels := cluster.Labels
 
@@ -117,10 +121,11 @@ func validateClusterIgnoreLabel(cluster *clusterv1.Cluster) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
-// buildTakeAlongLabels returns a list of valid take-along labels from a cluster
+// buildTakeAlongLabels returns a list of valid take-along labels from a cluster.
 func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []string) {
 	name := cluster.Name
 	namespace := cluster.Namespace
@@ -133,6 +138,7 @@ func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []stri
 		if err != nil {
 			return nil, []string{err.Error()}
 		}
+
 		if l != "" {
 			takeAlongLabels = append(takeAlongLabels, l)
 		}
@@ -141,18 +147,22 @@ func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []stri
 	takeAlongLabelsMap := make(map[string]string)
 
 	errors := []string{}
+
 	if len(takeAlongLabels) > 0 {
 		for _, label := range takeAlongLabels {
 			if label != "" {
 				if _, ok := clusterLabels[label]; !ok {
 					errors = append(errors, fmt.Sprintf("take-along label '%s' not found on cluster resource: %s, namespace: %s. Ignoring", label, name, namespace))
+
 					continue
 				}
+
 				takeAlongLabelsMap[label] = clusterLabels[label]
 				takeAlongLabelsMap[fmt.Sprintf("%s%s", clusterTakenFromClusterKey, label)] = ""
 			}
 		}
 	}
+
 	return takeAlongLabelsMap, errors
 }
 
@@ -170,6 +180,7 @@ func BuildClusterName(s string, namespace string) string {
 	if EnableNamespacedNames {
 		prefix += namespace + "-"
 	}
+
 	return prefix + s
 }
 
@@ -187,9 +198,11 @@ func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
 	for key, value := range GetArgoCommonLabels() {
 		mergedLabels[key] = value
 	}
+
 	for key, value := range a.ClusterLabels {
 		mergedLabels[key] = value
 	}
+
 	for key, value := range a.TakeAlongLabels {
 		mergedLabels[key] = value
 	}
@@ -210,6 +223,7 @@ func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
 			"config": c,
 		},
 	}
+
 	return argoSecret, nil
 }
 
