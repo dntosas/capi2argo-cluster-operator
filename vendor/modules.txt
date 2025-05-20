@@ -719,7 +719,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/trace
-# sigs.k8s.io/cluster-api v1.10.1
+# sigs.k8s.io/cluster-api v1.10.2
 ## explicit; go 1.23.0
 sigs.k8s.io/cluster-api/api/v1beta1
 sigs.k8s.io/cluster-api/errors
