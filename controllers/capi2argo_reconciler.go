@@ -61,7 +61,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	// Validate Secret.Metadata.Name complies with CAPI pattern: <clusterName>-kubeconfig
 	if !ValidateCapiNaming(req.NamespacedName) {
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	// Fetch CapiSecret
@@ -71,7 +71,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	if err != nil {
 		// If we get error reading the object - requeue the request.
 		if client.IgnoreNotFound(err) != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 		}
 
 		// If secret is deleted and GC is enabled, mark ArgoSecret for deletion.
@@ -87,21 +87,21 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			if err != nil {
 				log.Error(err, "Failed to list Cluster Secrets")
 
-				return ctrl.Result{}, err
+				return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 			}
 
 			if err := r.Delete(ctx, &secretList.Items[0]); err != nil {
 				log.Error(err, "Failed to delete ArgoSecret")
 
-				return ctrl.Result{}, err
+				return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 			}
 
 			log.Info("Deleted successfully of ArgoSecret")
 
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, client.IgnoreNotFound(err)
 	}
 
 	log.Info("Fetched CapiSecret")
@@ -112,7 +112,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	if err != nil {
 		log.Info("Ignoring secret as it's missing proper CAPI type", "type", capiSecret.Type)
 
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
 	// Construct CapiCluster from CapiSecret.
@@ -124,7 +124,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	if err != nil {
 		log.Error(err, "Failed to unmarshal CapiCluster")
 
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
 	clusterObject := &clusterv1.Cluster{}
@@ -138,7 +138,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	if validateClusterIgnoreLabel(clusterObject) {
 		log.Info("The cluster has label to be ignored, skipping...")
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	// Construct ArgoCluster from CapiCluster and CapiSecret.Metadata.
@@ -146,7 +146,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	if err != nil {
 		log.Error(err, "Failed to construct ArgoCluster")
 
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
 	// Convert ArgoCluster into ArgoSecret to work natively on k8s objects.
@@ -156,7 +156,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	if err != nil {
 		log.Error(err, "Failed to convert ArgoCluster to ArgoSecret")
 
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
 	// Represent a possible existing ArgoSecret.
@@ -177,7 +177,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	} else {
 		log.Error(err, "Failed to fetch ArgoSecret to check if exists")
 
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
 	// Reconcile ArgoSecret:
@@ -191,12 +191,12 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		if err := r.Create(ctx, argoSecret); err != nil {
 			log.Error(err, "Failed to create ArgoSecret")
 
-			return ctrl.Result{}, err
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 		}
 
 		log.Info("Created new ArgoSecret")
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 
 	case true:
 		log.Info("Checking if ArgoSecret is managed by the Controller")
@@ -205,7 +205,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		if err != nil {
 			log.Info("Not managed by Controller, skipping...")
 
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
 		log.Info("Checking if ArgoSecret is out-of-sync with")
@@ -280,12 +280,12 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			if err := r.Update(ctx, &existingSecret); err != nil {
 				log.Error(err, "Failed to update ArgoSecret")
 
-				return ctrl.Result{}, err
+				return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 			}
 
 			log.Info("Updated successfully of ArgoSecret")
 
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
 		log.Info("ArgoSecret is in-sync with CapiCluster, skipping...")
@@ -293,7 +293,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 }
 
 // SetupWithManager ..
