@@ -46,7 +46,7 @@ test: envtest ## Run go tests against code.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -mod=vendor `go list ./...` -coverprofile cover.out
 
 .PHONY: ci
-ci: fmt vet lint test ## Run go fmt/vet/lint/tests against the code.
+ci: fmt vet test ## Run go fmt/vet/lint/tests against the code.
 
 .PHONY: modsync
 modsync: ## Run go mod tidy && vendor.

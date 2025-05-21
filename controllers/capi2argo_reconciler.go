@@ -6,6 +6,7 @@ import (
 	goErr "errors"
 	"os"
 	"strconv"
+	"time"
 
 	"slices"
 	"strings"
@@ -44,8 +45,9 @@ func init() {
 // Capi2Argo reconciles a Secret object.
 type Capi2Argo struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log        logr.Logger
+	Scheme     *runtime.Scheme
+	SyncPeriod time.Duration
 }
 
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -288,7 +290,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 		log.Info("ArgoSecret is in-sync with CapiCluster, skipping...")
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	return ctrl.Result{}, nil

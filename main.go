@@ -33,7 +33,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -45,10 +44,10 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+// +kubebuilder:scaffold:scheme
 func init() {
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
@@ -86,9 +85,6 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "37cf8926.capi-cluster.x-argoproj.io",
-		Cache: cache.Options{
-			SyncPeriod: &syncDuration,
-		},
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
 		},
@@ -111,9 +107,10 @@ func main() {
 	}
 
 	if err = (&controllers.Capi2Argo{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("capi2argo"),
-		Scheme: mgr.GetScheme(),
+		Client:     mgr.GetClient(),
+		Log:        ctrl.Log.WithName("capi2argo"),
+		Scheme:     mgr.GetScheme(),
+		SyncPeriod: syncDuration,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Capi2Argo")
 		os.Exit(1)

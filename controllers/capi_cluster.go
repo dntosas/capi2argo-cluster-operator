@@ -9,6 +9,8 @@ import (
 )
 
 // CapiClusterSecretType represents the CAPI managed secret type.
+//
+//nolint:gosec
 const CapiClusterSecretType corev1.SecretType = "cluster.x-k8s.io/secret"
 
 // CapiCluster is an one-on-one representation of KubeConfig fields.
