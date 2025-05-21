@@ -31,7 +31,7 @@ jobs:
           logout: false
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           args: release --clean --config .github/config/goreleaser.yaml
         env:
