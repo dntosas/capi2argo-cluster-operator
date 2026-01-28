@@ -48,6 +48,18 @@ func TestUnmarshal(t *testing.T) {
 				"ErrorMsg": "wrong secret type",
 			},
 		},
+		{"test Rancher secret (Opaque type) with valid fields", MockRancherSecret(validMock, validKey, name, namespace), false,
+			map[string]string{
+				"Kind":        "Config",
+				"APIVersion":  "v1",
+				"ClusterName": "kube-cluster-test",
+				"UserName":    "kube-cluster-test-admin",
+				"CaData":      "",
+				"KeyData":     "dGVzdGVyCg==",
+				"Server":      "https://kube-cluster-test.domain.com:6443",
+				"Token":       "e",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -137,6 +149,12 @@ func TestValidateCapiSecret(t *testing.T) {
 		{"test type with wrong secret.Type", MockCapiSecret(validMock, !validType, validKey, name, namespace), true,
 			map[string]string{
 				"ErrorMsg": "wrong secret type",
+			},
+		},
+		{"test Rancher secret (Opaque type) with valid fields", MockRancherSecret(validMock, validKey, name, namespace), false, nil},
+		{"test Rancher secret (Opaque type) with wrong secret.Data[key]", MockRancherSecret(validMock, !validKey, name, namespace), true,
+			map[string]string{
+				"ErrorMsg": "wrong secret key",
 			},
 		},
 	}

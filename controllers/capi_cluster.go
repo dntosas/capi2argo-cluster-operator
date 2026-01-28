@@ -77,8 +77,10 @@ func (c *CapiCluster) Unmarshal(s *corev1.Secret) error {
 }
 
 // ValidateCapiSecret validates that we got proper defined types for a given secret.
+// It accepts both cluster.x-k8s.io/secret (standard CAPI) and Opaque (Rancher) types.
 func ValidateCapiSecret(s *corev1.Secret) error {
-	if s.Type != CapiClusterSecretType {
+	// Accept both standard CAPI type and Opaque type (used by Rancher)
+	if s.Type != CapiClusterSecretType && s.Type != corev1.SecretTypeOpaque {
 		return errors.New("wrong secret type")
 	}
 

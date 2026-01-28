@@ -106,6 +106,11 @@ func TestReconcile(t *testing.T) {
 				"ErrorMsg": "wrong secret type",
 			},
 		},
+		{"process Rancher secret (Opaque type)", MockReconcileReq("rancher-valid-kubeconfig", TestNamespace), false,
+			map[string]string{
+				"ErrorMsg": "none",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -191,5 +196,10 @@ func MockReconcileEnv() error {
 		return err
 	}
 
-	return K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, !validKey, "err-key-kubeconfig", TestNamespace))
+	if err := K8sClient.Create(context.Background(), MockCapiSecret(validMock, validType, !validKey, "err-key-kubeconfig", TestNamespace)); err != nil {
+		return err
+	}
+
+	// Add Rancher-style secret (Opaque type)
+	return K8sClient.Create(context.Background(), MockRancherSecret(validMock, validKey, "rancher-valid-kubeconfig", TestNamespace))
 }

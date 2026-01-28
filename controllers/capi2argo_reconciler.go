@@ -28,6 +28,10 @@ var (
 	// EnableNamespacedNames represents a mode where the cluster name is always
 	// prepended by the cluster namespace in all generated secrets.
 	EnableNamespacedNames bool
+
+	// EnableAutoLabelCopy enables automatic copying of all labels from CAPI Cluster
+	// to ArgoCD secret, without requiring take-along labels.
+	EnableAutoLabelCopy bool
 )
 
 func init() {
@@ -40,6 +44,7 @@ func init() {
 
 	EnableGarbageCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_GARBAGE_COLLECTION"))
 	EnableNamespacedNames, _ = strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
+	EnableAutoLabelCopy, _ = strconv.ParseBool(os.Getenv("ENABLE_AUTO_LABEL_COPY"))
 }
 
 // Capi2Argo reconciles a Secret object.

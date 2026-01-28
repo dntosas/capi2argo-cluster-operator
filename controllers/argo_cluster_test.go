@@ -226,6 +226,121 @@ func TestConvertToSecret(t *testing.T) {
 // 	}
 // }
 
+func TestBuildAutoLabelCopy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		testName           string
+		testMock           map[string]string
+		testExpectedValues map[string]string
+	}{
+		{
+			"Test with user labels only",
+			map[string]string{
+				"foo":                       "bar",
+				"my.domain.com/environment": "prod",
+			},
+			map[string]string{
+				"foo":                       "bar",
+				"my.domain.com/environment": "prod",
+			},
+		},
+		{
+			"Test with mixed labels (user + system)",
+			map[string]string{
+				"foo":                              "bar",
+				"kubernetes.io/cluster-name":       "test",
+				"cluster.x-k8s.io/cluster-name":    "test",
+				"capi-to-argocd/owned":             "true",
+				"take-along-label.capi-to-argocd.foo": "",
+				"ignore-cluster.capi-to-argocd":    "",
+				"my.domain.com/environment":        "prod",
+			},
+			map[string]string{
+				"foo":                       "bar",
+				"my.domain.com/environment": "prod",
+			},
+		},
+		{
+			"Test with only system labels",
+			map[string]string{
+				"kubernetes.io/cluster-name":    "test",
+				"cluster.x-k8s.io/cluster-name": "test",
+			},
+			map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			result := buildAutoLabelCopy(tt.testMock)
+			assert.Equal(t, tt.testExpectedValues, result)
+		})
+	}
+}
+
+func TestBuildTakeAlongLabelsWithAutoMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		testName           string
+		testMock           *clusterv1.Cluster
+		testExpectedValues map[string]string
+	}{
+		{
+			"Test auto mode with user labels",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Labels: map[string]string{
+						"foo":                       "bar",
+						"my.domain.com/environment": "prod",
+						"cluster.x-k8s.io/cluster-name": "test",
+					},
+				},
+			},
+			map[string]string{
+				"foo":                       "bar",
+				"my.domain.com/environment": "prod",
+			},
+		},
+		{
+			"Test auto mode filters out system labels",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Labels: map[string]string{
+						"user-label":                    "value",
+						"kubernetes.io/cluster-name":    "test",
+						"cluster.x-k8s.io/cluster-name": "test",
+						"capi-to-argocd/owned":          "true",
+					},
+				},
+			},
+			map[string]string{
+				"user-label": "value",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			// Save original value and restore after test
+			oldAutoLabelCopy := EnableAutoLabelCopy
+			EnableAutoLabelCopy = true
+			defer func() { EnableAutoLabelCopy = oldAutoLabelCopy }()
+
+			result, errors := buildTakeAlongLabels(tt.testMock)
+			assert.Empty(t, errors)
+			assert.Equal(t, tt.testExpectedValues, result)
+		})
+	}
+}
+
 func TestBuildNamespacedName(t *testing.T) {
 	t.Parallel()
 
