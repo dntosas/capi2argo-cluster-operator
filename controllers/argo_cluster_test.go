@@ -388,3 +388,55 @@ func TestBuildNamespacedName(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateClusterIgnoreLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		testName          string
+		testMock          *clusterv1.Cluster
+		testExpectedValue bool
+	}{
+		{
+			"Test with nil cluster",
+			nil,
+			false,
+		},
+		{
+			"Test with cluster without ignore label",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+			},
+			false,
+		},
+		{
+			"Test with cluster with ignore label",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Labels: map[string]string{
+						"foo":                         "bar",
+						"ignore-cluster.capi-to-argocd": "",
+					},
+				},
+			},
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			result := validateClusterIgnoreLabel(tt.testMock)
+			assert.Equal(t, tt.testExpectedValue, result)
+		})
+	}
+}

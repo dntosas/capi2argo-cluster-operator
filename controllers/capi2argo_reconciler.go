@@ -137,7 +137,41 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	err = r.Get(ctx, types.NamespacedName{Name: capiSecret.Labels[clusterv1.ClusterNameLabel], Namespace: req.Namespace}, clusterObject)
 	if err != nil {
-		log.Info("Failed to get Cluster object", "error", err)
+		if errors.IsNotFound(err) {
+			log.Info("CAPI Cluster not found, cleaning up ArgoCD secret if exists")
+
+			// Try to find and delete any existing ArgoCD secret
+			labelSelector := map[string]string{
+				"capi-to-argocd/cluster-secret-name": req.NamespacedName.Name,
+				"capi-to-argocd/cluster-namespace":   req.NamespacedName.Namespace,
+			}
+			listOption := client.MatchingLabels(labelSelector)
+			secretList := &corev1.SecretList{}
+
+			err = r.List(ctx, secretList, listOption, client.InNamespace(ArgoNamespace))
+			if err != nil {
+				log.Error(err, "Failed to list ArgoCD secrets for cleanup")
+
+				return ctrl.Result{}, err
+			}
+
+			if len(secretList.Items) > 0 {
+				if err := r.Delete(ctx, &secretList.Items[0]); err != nil && !errors.IsNotFound(err) {
+					log.Error(err, "Failed to delete orphaned ArgoSecret")
+
+					return ctrl.Result{}, err
+				}
+
+				log.Info("Deleted orphaned ArgoSecret because CAPI Cluster no longer exists")
+			}
+
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
+		}
+
+		// Other errors should be returned
+		log.Error(err, "Failed to get CAPI Cluster object")
+
+		return ctrl.Result{}, err
 	}
 
 	// Check if the cluster has the ignore label
