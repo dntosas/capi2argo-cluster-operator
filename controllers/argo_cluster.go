@@ -125,12 +125,47 @@ func validateClusterIgnoreLabel(cluster *clusterv1.Cluster) bool {
 	return false
 }
 
+// buildAutoLabelCopy copies all cluster labels except system and internal labels.
+// It filters out:
+// - kubernetes.io/* labels (system labels)
+// - cluster.x-k8s.io/* labels (CAPI internal labels)
+// - capi-to-argocd/* labels (controller internal labels)
+// - take-along-label.capi-to-argocd.* labels (take-along markers)
+// - ignore-cluster.capi-to-argocd label (ignore marker)
+func buildAutoLabelCopy(clusterLabels map[string]string) map[string]string {
+	copyLabels := make(map[string]string)
+
+	for key, value := range clusterLabels {
+		// Skip system and internal labels
+		if strings.HasPrefix(key, "kubernetes.io/") ||
+			strings.HasPrefix(key, "cluster.x-k8s.io/") ||
+			strings.HasPrefix(key, "capi-to-argocd/") ||
+			strings.HasPrefix(key, clusterTakeAlongKey) ||
+			key == clusterIgnoreKey {
+			continue
+		}
+
+		// Copy the label as-is
+		copyLabels[key] = value
+	}
+
+	return copyLabels
+}
+
 // buildTakeAlongLabels returns a list of valid take-along labels from a cluster.
+// If EnableAutoLabelCopy is true, it copies all cluster labels automatically.
+// Otherwise, it uses the take-along label mechanism for backward compatibility.
 func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []string) {
 	name := cluster.Name
 	namespace := cluster.Namespace
 	clusterLabels := cluster.Labels
 
+	// If auto label copy is enabled, copy all labels except system labels
+	if EnableAutoLabelCopy {
+		return buildAutoLabelCopy(clusterLabels), []string{}
+	}
+
+	// Original behavior: use take-along labels
 	takeAlongLabels := []string{}
 	// Check labels keys that begin with clusterTakeAlongKey and extract the value after the last '/
 	for k := range clusterLabels {

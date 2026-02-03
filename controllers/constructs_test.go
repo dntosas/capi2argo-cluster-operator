@@ -71,6 +71,45 @@ func MockCapiSecret(validMock bool, validType bool, validKey bool, name string, 
 	return &s
 }
 
+// MockRancherSecret returns a mock secret of type Opaque (Rancher-style).
+func MockRancherSecret(validMock bool, validKey bool, name string, namespace string) *corev1.Secret {
+	// If validMock=true, return type with proper b64 encoded values
+	var v []byte
+	if validMock {
+		v, _ = b64.StdEncoding.DecodeString(MockCapiKubeConfig())
+	} else {
+		v = []byte("tester")
+	}
+
+	// If validKey=true, return type with proper data.key
+	var k string
+	if validKey {
+		k = "value"
+	} else {
+		k = "tester"
+	}
+
+	s := corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"cluster.x-k8s.io/cluster-name": "test",
+			},
+		},
+		Data: map[string][]byte{
+			k: v,
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+
+	return &s
+}
+
 func MockArgoCluster(validMock bool) *ArgoCluster {
 	// If validMock=true, return type with proper b64 encoded values
 	var v string
