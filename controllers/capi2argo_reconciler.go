@@ -152,14 +152,16 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			if err != nil {
 				log.Error(err, "Failed to list ArgoCD secrets for cleanup")
 
-				return ctrl.Result{}, err
+				// Requeue to retry cleanup later
+				return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 			}
 
 			if len(secretList.Items) > 0 {
 				if err := r.Delete(ctx, &secretList.Items[0]); err != nil && !errors.IsNotFound(err) {
 					log.Error(err, "Failed to delete orphaned ArgoSecret")
 
-					return ctrl.Result{}, err
+					// Requeue to retry deletion later
+					return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 				}
 
 				log.Info("Deleted orphaned ArgoSecret because CAPI Cluster no longer exists")
@@ -168,10 +170,10 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
-		// Other errors should be returned
+		// Other errors should be returned with requeue
 		log.Error(err, "Failed to get CAPI Cluster object")
 
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
 	// Check if the cluster has the ignore label

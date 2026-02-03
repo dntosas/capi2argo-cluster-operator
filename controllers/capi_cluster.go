@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"errors"
+	"strings"
+
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"strings"
 )
 
 // CapiClusterSecretType represents the CAPI managed secret type.
@@ -79,8 +80,20 @@ func (c *CapiCluster) Unmarshal(s *corev1.Secret) error {
 // ValidateCapiSecret validates that we got proper defined types for a given secret.
 // It accepts both cluster.x-k8s.io/secret (standard CAPI) and Opaque (Rancher) types.
 func ValidateCapiSecret(s *corev1.Secret) error {
-	// Accept both standard CAPI type and Opaque type (used by Rancher)
-	if s.Type != CapiClusterSecretType && s.Type != corev1.SecretTypeOpaque {
+	// Accept both standard CAPI type and Opaque type (used by Rancher),
+	// but for Opaque secrets require a Rancher/CAPI-identifying label to
+	// avoid treating arbitrary Opaque secrets as cluster credentials.
+	switch s.Type {
+	case CapiClusterSecretType:
+		// Standard CAPI secret type; accepted as is.
+	case corev1.SecretTypeOpaque:
+		if s.Labels == nil {
+			return errors.New("wrong secret type")
+		}
+		if _, ok := s.Labels["cluster.x-k8s.io/cluster-name"]; !ok {
+			return errors.New("wrong secret type")
+		}
+	default:
 		return errors.New("wrong secret type")
 	}
 
