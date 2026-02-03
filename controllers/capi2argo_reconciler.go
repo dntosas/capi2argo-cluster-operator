@@ -66,7 +66,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	// Validate Secret.Metadata.Name complies with CAPI pattern: <clusterName>-kubeconfig
 	if !ValidateCapiNaming(req.NamespacedName) {
-		return ctrl.Result{}, nil
+		// Still requeue to check if naming becomes valid later
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	// Fetch CapiSecret
@@ -103,10 +104,10 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 			log.Info("Deleted successfully of ArgoSecret")
 
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, client.IgnoreNotFound(err)
 	}
 
 	log.Info("Fetched CapiSecret")
@@ -143,7 +144,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	if validateClusterIgnoreLabel(clusterObject) {
 		log.Info("The cluster has label to be ignored, skipping...")
 
-		return ctrl.Result{}, nil
+		// Still requeue to check if ignore label is removed later
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	// Construct ArgoCluster from CapiCluster and CapiSecret.Metadata.
@@ -201,7 +203,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 		log.Info("Created new ArgoSecret")
 
-		return ctrl.Result{}, nil
+		// Requeue to verify creation and monitor for future changes
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 
 	case true:
 		log.Info("Checking if ArgoSecret is managed by the Controller")
@@ -210,7 +213,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		if err != nil {
 			log.Info("Not managed by Controller, skipping...")
 
-			return ctrl.Result{}, nil
+			// Still requeue to check if ownership changes later
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
 		log.Info("Checking if ArgoSecret is out-of-sync with")
@@ -290,7 +294,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 			log.Info("Updated successfully of ArgoSecret")
 
-			return ctrl.Result{}, nil
+			// Requeue to monitor for future changes
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
 		log.Info("ArgoSecret is in-sync with CapiCluster, skipping...")
@@ -298,7 +303,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
-	return ctrl.Result{}, nil
+	// Fallback (should not be reached)
+	return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 }
 
 // SetupWithManager ..
