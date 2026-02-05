@@ -1,0 +1,16 @@
+{{- if and .Values.rbac.create .Values.rbac.argoCDRole }}
+apiVersion: rbac.authorization.k8s.io/{{ .Values.rbac.apiVersion }}
+kind: RoleBinding
+metadata:
+  name: {{ template "capi2argo-cluster-operator.fullname" . }}-argocd
+  labels: {{ include "capi2argo-cluster-operator.labels" . | nindent 4 }}
+  namespace: {{ .Values.argoCDNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ template "capi2argo-cluster-operator.fullname" . }}-argocd
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "capi2argo-cluster-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

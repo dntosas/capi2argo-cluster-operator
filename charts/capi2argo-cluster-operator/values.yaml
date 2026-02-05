@@ -18,6 +18,7 @@ image:
 
 argoCDNamespace: "argocd"
 namespacedNamesEnabled: false
+watchNamespace: null
 garbageCollectionEnabled: true
 
 dryRun: false
@@ -52,6 +53,7 @@ serviceAccount:
 rbac:
   create: true
   clusterRole: true
+  argoCDRole: true
   apiVersion: v1
 
 containerSecurityContext:

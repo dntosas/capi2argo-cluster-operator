@@ -86,6 +86,9 @@ spec:
             - --{{ $key }}
               {{- end }}
             {{- end }}
+            {{- with .Values.watchNamespace }}
+            - --namespace={{ . }}
+            {{- end }}
           {{- end }}
           env:
             {{- if .Values.argoCDNamespace }}

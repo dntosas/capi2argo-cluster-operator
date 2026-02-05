@@ -33,6 +33,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -63,6 +64,8 @@ func main() {
 
 	var syncDuration time.Duration
 
+	var watchNamespace string
+
 	defaultSyncDuration, _ := time.ParseDuration("45s")
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -71,6 +74,7 @@ func main() {
 	flag.BoolVar(&enableDryRun, "dry-run", false, "Run in dry-run mode.")
 	flag.BoolVar(&enableDebugMode, "debug", false, "Run in debug mode.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. "+"Use this when deploying multiple pods so to ensure there is only one active controller manager.")
+	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches for cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.")
 
 	opts := zap.Options{
 		Development: enableDebugMode,
@@ -80,6 +84,14 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	var defaultNamespaces map[string]cache.Config
+	if watchNamespace != "" {
+		setupLog.Info("Watching cluster-api objects only in namespace for reconciliation", "namespace", watchNamespace)
+		defaultNamespaces = map[string]cache.Config{
+			watchNamespace: {},
+		}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		HealthProbeBindAddress: probeAddr,
@@ -87,6 +99,10 @@ func main() {
 		LeaderElectionID:       "37cf8926.capi-cluster.x-argoproj.io",
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
+		},
+		Cache: cache.Options{
+			SyncPeriod:        &syncDuration,
+			DefaultNamespaces: defaultNamespaces,
 		},
 	})
 	if err != nil {
