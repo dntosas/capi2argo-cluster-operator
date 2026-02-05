@@ -52,6 +52,7 @@ serviceAccount:
 rbac:
   create: true
   clusterRole: true
+  argoCDRole: true
   apiVersion: v1
 
 containerSecurityContext:

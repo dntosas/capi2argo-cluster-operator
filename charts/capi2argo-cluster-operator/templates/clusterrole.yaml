@@ -11,12 +11,6 @@ rules:
       - secrets
       - namespaces
     verbs:
-      - '*'
-  - apiGroups:
-      - ""
-    resources:
-      - namespaces
-    verbs:
       - 'get'
       - 'list'
       - 'watch'
