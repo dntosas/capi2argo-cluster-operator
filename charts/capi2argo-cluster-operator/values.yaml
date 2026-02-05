@@ -18,6 +18,7 @@ image:
 
 argoCDNamespace: "argocd"
 namespacedNamesEnabled: false
+watchNamespace: null
 garbageCollectionEnabled: true
 
 dryRun: false

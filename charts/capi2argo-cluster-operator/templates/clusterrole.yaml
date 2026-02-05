@@ -1,9 +1,16 @@
 {{- if and .Values.rbac.create .Values.rbac.clusterRole }}
 apiVersion: rbac.authorization.k8s.io/{{ .Values.rbac.apiVersion }}
+{{- if .Values.watchNamespace }}
+kind: Role
+{{- else }}
 kind: ClusterRole
+{{- end }}
 metadata:
   name: {{ template "capi2argo-cluster-operator.fullname" . }}
   labels: {{ include "capi2argo-cluster-operator.labels" . | nindent 4 }}
+  {{- with .Values.watchNamespace }}
+  namespace: {{ . }}
+  {{- end }}
 rules:
   - apiGroups:
       - ""
