@@ -2,7 +2,8 @@
 name: "CI"
 on:
   push:
-      paths:
+    branches: [main]
+    paths:
       - '.github/workflows/*'
       - 'controllers/*'
       - 'vendor/*'
@@ -10,7 +11,7 @@ on:
       - 'go.sum'
       - 'main.go'
   pull_request:
-      paths:
+    paths:
       - '.github/workflows/*'
       - 'controllers/*'
       - 'vendor/*'
@@ -40,7 +41,7 @@ jobs:
       - name: Run go lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.1.6
+          version: v2.8.0
           args: --timeout 5m --modules-download-mode=vendor --build-tags integration
 
       - name: Run go test
