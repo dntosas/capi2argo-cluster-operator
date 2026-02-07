@@ -2,19 +2,22 @@ package controllers
 
 import (
 	b64 "encoding/base64"
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/yaml"
+	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 )
 
 var (
-	validMock = true
-	validType = true
-	validKey  = true
-	name      = "test"
-	namespace = "test"
+	defaultValidMock = true
+	defaultValidType = true
+	defaultValidKey  = true
+	defaultName      = "test"
+	defaultNamespace = "test"
 )
 
 func TestUnmarshal(t *testing.T) {
@@ -23,10 +26,10 @@ func TestUnmarshal(t *testing.T) {
 	tests := []struct {
 		testName           string
 		testMock           *corev1.Secret
-		testExpectedError  bool
+		testExpectedError  error
 		testExpectedValues map[string]string
 	}{
-		{"test type with valid fields", MockCapiSecret(validMock, validType, validKey, name, namespace), false,
+		{"test type with valid fields", MockCapiSecret(defaultValidMock, defaultValidType, defaultValidKey, defaultName, defaultNamespace), nil,
 			map[string]string{
 				"Kind":        "Config",
 				"APIVersion":  "v1",
@@ -38,17 +41,9 @@ func TestUnmarshal(t *testing.T) {
 				"Token":       "e",
 			},
 		},
-		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey, name, namespace), true,
-			map[string]string{
-				"ErrorMsg": "wrong secret key",
-			},
-		},
-		{"test type with wrong secret.Type", MockCapiSecret(validMock, !validType, validKey, name, namespace), true,
-			map[string]string{
-				"ErrorMsg": "wrong secret type",
-			},
-		},
-		{"test Rancher secret (Opaque type) with valid fields", MockRancherSecret(validMock, validKey, name, namespace), false,
+		{"test type with wrong secret.Data[key]", MockCapiSecret(defaultValidMock, defaultValidType, !defaultValidKey, defaultName, defaultNamespace), ErrWrongSecretKey, nil},
+		{"test type with wrong secret.Type", MockCapiSecret(defaultValidMock, !defaultValidType, defaultValidKey, defaultName, defaultNamespace), ErrWrongSecretType, nil},
+		{"test Rancher secret (Opaque type) with valid fields", MockRancherSecret(defaultValidMock, defaultValidKey, defaultName, defaultNamespace), nil,
 			map[string]string{
 				"Kind":        "Config",
 				"APIVersion":  "v1",
@@ -65,21 +60,23 @@ func TestUnmarshal(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 
-			c := NewCapiCluster(name, namespace)
+			c := NewCapiCluster(defaultName, defaultNamespace)
 			err := c.Unmarshal(tt.testMock)
 
-			if !tt.testExpectedError {
+			if tt.testExpectedError != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.testExpectedError)
+			} else {
 				assert.NotNil(t, c)
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 
 				if tt.testExpectedValues != nil {
-					// Check expected values.
 					assert.Equal(t, tt.testExpectedValues["Kind"], c.KubeConfig.Kind)
 					assert.Equal(t, tt.testExpectedValues["APIVersion"], c.KubeConfig.APIVersion)
 					assert.Equal(t, tt.testExpectedValues["ClusterName"], c.KubeConfig.Clusters[0].Name)
 					assert.Equal(t, tt.testExpectedValues["Server"], c.KubeConfig.Clusters[0].Cluster.Server)
 					assert.Equal(t, tt.testExpectedValues["UserName"], c.KubeConfig.Users[0].Name)
-					// Check that we get proper binary values for specific fields.
+
 					if c.KubeConfig.Users[0].User.CertData != nil {
 						assert.Eventually(t, func() bool {
 							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.CertData)
@@ -109,17 +106,11 @@ func TestUnmarshal(t *testing.T) {
 
 						return err == nil
 					}, time.Second, 100*time.Millisecond)
-					// Get at least one cluster/user per secret.
+
 					assert.GreaterOrEqual(t, len(c.KubeConfig.Clusters), 1)
 					assert.GreaterOrEqual(t, len(c.KubeConfig.Users), 1)
 					_, err = yaml.Marshal(c)
 					assert.Nil(t, err)
-				}
-			} else {
-				assert.NotNil(t, err)
-
-				if assert.Error(t, err) {
-					assert.Equal(t, tt.testExpectedValues["ErrorMsg"], err.Error())
 				}
 			}
 		})
@@ -127,6 +118,8 @@ func TestUnmarshal(t *testing.T) {
 }
 
 func TestNewCapiCluster(t *testing.T) {
+	t.Parallel()
+
 	c := NewCapiCluster("test", "test")
 	assert.IsType(t, &CapiCluster{}, c)
 }
@@ -135,45 +128,59 @@ func TestValidateCapiSecret(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		testName           string
-		testMock           *corev1.Secret
-		testExpectedError  bool
-		testExpectedValues map[string]string
+		testName    string
+		testMock    *corev1.Secret
+		expectedErr error
 	}{
-		{"test type with valid fields", MockCapiSecret(validMock, validType, validKey, name, namespace), false, nil},
-		{"test type with wrong secret.Data[key]", MockCapiSecret(validMock, validType, !validKey, name, namespace), true,
-			map[string]string{
-				"ErrorMsg": "wrong secret key",
-			},
-		},
-		{"test type with wrong secret.Type", MockCapiSecret(validMock, !validType, validKey, name, namespace), true,
-			map[string]string{
-				"ErrorMsg": "wrong secret type",
-			},
-		},
-		{"test Rancher secret (Opaque type) with valid fields", MockRancherSecret(validMock, validKey, name, namespace), false, nil},
-		{"test Rancher secret (Opaque type) with wrong secret.Data[key]", MockRancherSecret(validMock, !validKey, name, namespace), true,
-			map[string]string{
-				"ErrorMsg": "wrong secret key",
-			},
-		},
+		{"test type with valid fields", MockCapiSecret(defaultValidMock, defaultValidType, defaultValidKey, defaultName, defaultNamespace), nil},
+		{"test type with wrong secret.Data[key]", MockCapiSecret(defaultValidMock, defaultValidType, !defaultValidKey, defaultName, defaultNamespace), ErrWrongSecretKey},
+		{"test type with wrong secret.Type", MockCapiSecret(defaultValidMock, !defaultValidType, defaultValidKey, defaultName, defaultNamespace), ErrWrongSecretType},
+		{"test Rancher secret (Opaque type) with valid fields", MockRancherSecret(defaultValidMock, defaultValidKey, defaultName, defaultNamespace), nil},
+		{"test Rancher secret (Opaque type) with wrong secret.Data[key]", MockRancherSecret(defaultValidMock, !defaultValidKey, defaultName, defaultNamespace), ErrWrongSecretKey},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 
 			err := ValidateCapiSecret(tt.testMock)
-			if !tt.testExpectedError {
-				assert.Nil(t, err)
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.expectedErr)
 			} else {
-				assert.NotNil(t, err)
-
-				if tt.testExpectedValues != nil {
-					if assert.Error(t, err) {
-						assert.Equal(t, tt.testExpectedValues["ErrorMsg"], err.Error())
-					}
-				}
+				assert.NoError(t, err)
 			}
 		})
 	}
+}
+
+func TestValidateCapiNaming(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{"valid kubeconfig suffix", "my-cluster-kubeconfig", true},
+		{"user kubeconfig should be rejected", "my-cluster-user-kubeconfig", false},
+		{"no kubeconfig suffix", "my-cluster-secret", false},
+		{"empty name", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			nn := types.NamespacedName{Name: tt.input, Namespace: "default"}
+			assert.Equal(t, tt.expected, ValidateCapiNaming(nn))
+		})
+	}
+}
+
+func TestSentinelErrorsAreDistinct(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, errors.Is(ErrWrongSecretType, ErrWrongSecretKey))
+	assert.False(t, errors.Is(ErrWrongSecretType, ErrInvalidKubeConfig))
+	assert.False(t, errors.Is(ErrWrongSecretKey, ErrInvalidKubeConfig))
 }

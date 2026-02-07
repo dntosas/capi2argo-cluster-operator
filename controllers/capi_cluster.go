@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -9,19 +10,26 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// Sentinel errors for CAPI secret validation.
+var (
+	ErrWrongSecretType   = errors.New("wrong secret type")
+	ErrWrongSecretKey    = errors.New("wrong secret key")
+	ErrInvalidKubeConfig = errors.New("invalid KubeConfig")
+)
+
 // CapiClusterSecretType represents the CAPI managed secret type.
 //
 //nolint:gosec
 const CapiClusterSecretType corev1.SecretType = "cluster.x-k8s.io/secret"
 
-// CapiCluster is an one-on-one representation of KubeConfig fields.
+// CapiCluster is a representation of KubeConfig fields.
 type CapiCluster struct {
 	Name       string     `yaml:"name"`
 	Namespace  string     `yaml:"namespace"`
 	KubeConfig KubeConfig `yaml:"kubeConfig"`
 }
 
-// KubeConfig is an one-on-one representation of KubeConfig fields.
+// KubeConfig is a representation of KubeConfig fields.
 type KubeConfig struct {
 	APIVersion string    `yaml:"apiVersion"`
 	Kind       string    `yaml:"kind"`
@@ -35,7 +43,7 @@ type Cluster struct {
 	Cluster ClusterInfo `yaml:"cluster"`
 }
 
-// ClusterInfo represents kubeconfig.[]Clusters.Cluster.Clusterinfo fields.
+// ClusterInfo represents kubeconfig.[]Clusters.Cluster.ClusterInfo fields.
 type ClusterInfo struct {
 	CaData string `yaml:"certificate-authority-data"`
 	Server string `yaml:"server"`
@@ -54,7 +62,7 @@ type UserInfo struct {
 	Token    *string `yaml:"token,omitempty"`
 }
 
-// NewCapiCluster returns an empty CapiCluster type.
+// NewCapiCluster returns an empty CapiCluster.
 func NewCapiCluster(name, namespace string) *CapiCluster {
 	return &CapiCluster{
 		Name:       name,
@@ -63,7 +71,7 @@ func NewCapiCluster(name, namespace string) *CapiCluster {
 	}
 }
 
-// Unmarshal k8s secret into CapiCluster type.
+// Unmarshal parses a Kubernetes secret into a CapiCluster.
 func (c *CapiCluster) Unmarshal(s *corev1.Secret) error {
 	if err := ValidateCapiSecret(s); err != nil {
 		return err
@@ -71,34 +79,32 @@ func (c *CapiCluster) Unmarshal(s *corev1.Secret) error {
 
 	err := yaml.Unmarshal(s.Data["value"], &c.KubeConfig)
 	if err != nil || len(c.KubeConfig.Clusters) == 0 || len(c.KubeConfig.Users) == 0 || c.KubeConfig.APIVersion != "v1" || c.KubeConfig.Kind != "Config" {
-		return errors.New("invalid KubeConfig")
+		return fmt.Errorf("%w: failed to parse kubeconfig for %s/%s", ErrInvalidKubeConfig, c.Namespace, c.Name)
 	}
 
 	return nil
 }
 
-// ValidateCapiSecret validates that we got proper defined types for a given secret.
+// ValidateCapiSecret validates that a secret has the correct type and data keys.
 // It accepts both cluster.x-k8s.io/secret (standard CAPI) and Opaque (Rancher) types.
 func ValidateCapiSecret(s *corev1.Secret) error {
-	// Accept both standard CAPI type and Opaque type (used by Rancher),
-	// but for Opaque secrets require a Rancher/CAPI-identifying label to
-	// avoid treating arbitrary Opaque secrets as cluster credentials.
 	switch s.Type {
 	case CapiClusterSecretType:
-		// Standard CAPI secret type; accepted as is.
+		// Standard CAPI secret type; accepted as-is.
 	case corev1.SecretTypeOpaque:
 		if s.Labels == nil {
-			return errors.New("wrong secret type")
+			return ErrWrongSecretType
 		}
+
 		if _, ok := s.Labels["cluster.x-k8s.io/cluster-name"]; !ok {
-			return errors.New("wrong secret type")
+			return ErrWrongSecretType
 		}
 	default:
-		return errors.New("wrong secret type")
+		return ErrWrongSecretType
 	}
 
 	if _, ok := s.Data["value"]; !ok {
-		return errors.New("wrong secret key")
+		return ErrWrongSecretKey
 	}
 
 	return nil

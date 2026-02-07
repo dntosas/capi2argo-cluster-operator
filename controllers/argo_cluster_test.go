@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	// b64 "encoding/base64".
+	"errors"
 	"fmt"
 	"testing"
 
@@ -43,6 +43,11 @@ func TestExtractTakeAlongLabel(t *testing.T) {
 
 func TestBuildTakeAlongLabels(t *testing.T) {
 	t.Parallel()
+
+	cfg := &Config{
+		ArgoNamespace:       "argocd",
+		EnableAutoLabelCopy: false,
+	}
 
 	tests := []struct {
 		testName           string
@@ -130,11 +135,11 @@ func TestBuildTakeAlongLabels(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 
-			v, errors := buildTakeAlongLabels(tt.testMock)
+			v, errs := buildTakeAlongLabels(tt.testMock, cfg)
 			if tt.testExpectedError {
-				assert.NotEmpty(t, errors)
+				assert.NotEmpty(t, errs)
 			} else {
-				assert.Empty(t, errors)
+				assert.Empty(t, errs)
 			}
 
 			assert.Equal(t, v, tt.testExpectedValues)
@@ -145,7 +150,7 @@ func TestBuildTakeAlongLabels(t *testing.T) {
 func TestConvertToSecret(t *testing.T) {
 	t.Parallel()
 
-	validMock := true
+	cfg := &Config{ArgoNamespace: "argocd"}
 
 	tests := []struct {
 		testName           string
@@ -153,19 +158,18 @@ func TestConvertToSecret(t *testing.T) {
 		testExpectedError  bool
 		testExpectedValues map[string]string
 	}{
-		{"test type with valid fields", MockArgoCluster(validMock), false,
+		{"test type with valid fields", MockArgoCluster(true, cfg), false,
 			map[string]string{
 				"Kind":            "Secret",
 				"APIVersion":      "v1",
 				"Name":            "cluster-test",
-				"Namespace":       ArgoNamespace,
+				"Namespace":       cfg.ArgoNamespace,
 				"OperatorLabel":   GetArgoCommonLabels()["capi-to-argocd/owned"],
 				"ArgoLabel":       GetArgoCommonLabels()["argocd.argoproj.io/secret-type"],
 				"SecretNameLabel": "test-kubeconfig",
 				"NamespaceLabel":  "test",
 			},
 		},
-		// {"test type with non-valid fields", MockArgoCluster(!validMock), true, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -196,36 +200,6 @@ func TestConvertToSecret(t *testing.T) {
 	}
 }
 
-// func TestValidateClusterTLSConfig(t *testing.T) {
-// 	// Create a dummy valid b64 string
-// 	enc := b64.StdEncoding.EncodeToString([]byte("test"))
-// 	nonValid := "non-valid"
-
-// 	t.Parallel()
-// 	tests := []struct {
-// 		testName          string
-// 		testMock          *ArgoTLS
-// 		testExpectedError bool
-// 	}{
-// 		{"test type with valid fields", &ArgoTLS{CaData: &enc, CertData: &enc, KeyData: &enc}, false},
-// 		{"test type with non-valid field", &ArgoTLS{CaData: &nonValid, CertData: &enc, KeyData: &enc}, true},
-// 		{"test type with missing fields", &ArgoTLS{CaData: &enc}, true},
-// 		{"test empty type", &ArgoTLS{}, true},
-// 	}
-// 	for _, tt := range tests {
-// 		tt := tt
-// 		t.Run(tt.testName, func(t *testing.T) {
-// 			t.Parallel()
-// 			err := ValidateClusterTLSConfig(tt.testMock)
-// 			if !tt.testExpectedError {
-// 				assert.Nil(t, err)
-// 			} else {
-// 				assert.NotNil(t, err)
-// 			}
-// 		})
-// 	}
-// }
-
 func TestBuildAutoLabelCopy(t *testing.T) {
 	t.Parallel()
 
@@ -248,13 +222,13 @@ func TestBuildAutoLabelCopy(t *testing.T) {
 		{
 			"Test with mixed labels (user + system)",
 			map[string]string{
-				"foo":                              "bar",
-				"kubernetes.io/cluster-name":       "test",
-				"cluster.x-k8s.io/cluster-name":    "test",
-				"capi-to-argocd/owned":             "true",
-				"take-along-label.capi-to-argocd.foo": "",
-				"ignore-cluster.capi-to-argocd":    "",
-				"my.domain.com/environment":        "prod",
+				"foo":                                  "bar",
+				"kubernetes.io/cluster-name":           "test",
+				"cluster.x-k8s.io/cluster-name":       "test",
+				"capi-to-argocd/owned":                 "true",
+				"take-along-label.capi-to-argocd.foo":  "",
+				"ignore-cluster.capi-to-argocd":        "",
+				"my.domain.com/environment":            "prod",
 			},
 			map[string]string{
 				"foo":                       "bar",
@@ -264,7 +238,7 @@ func TestBuildAutoLabelCopy(t *testing.T) {
 		{
 			"Test with only system labels",
 			map[string]string{
-				"kubernetes.io/cluster-name":    "test",
+				"kubernetes.io/cluster-name":     "test",
 				"cluster.x-k8s.io/cluster-name": "test",
 			},
 			map[string]string{},
@@ -284,6 +258,11 @@ func TestBuildAutoLabelCopy(t *testing.T) {
 func TestBuildTakeAlongLabelsWithAutoMode(t *testing.T) {
 	t.Parallel()
 
+	cfg := &Config{
+		ArgoNamespace:       "argocd",
+		EnableAutoLabelCopy: true,
+	}
+
 	tests := []struct {
 		testName           string
 		testMock           *clusterv1.Cluster
@@ -296,8 +275,8 @@ func TestBuildTakeAlongLabelsWithAutoMode(t *testing.T) {
 					Name:      "test",
 					Namespace: "test",
 					Labels: map[string]string{
-						"foo":                       "bar",
-						"my.domain.com/environment": "prod",
+						"foo":                            "bar",
+						"my.domain.com/environment":      "prod",
 						"cluster.x-k8s.io/cluster-name": "test",
 					},
 				},
@@ -314,10 +293,10 @@ func TestBuildTakeAlongLabelsWithAutoMode(t *testing.T) {
 					Name:      "test",
 					Namespace: "test",
 					Labels: map[string]string{
-						"user-label":                    "value",
-						"kubernetes.io/cluster-name":    "test",
+						"user-label":                     "value",
+						"kubernetes.io/cluster-name":     "test",
 						"cluster.x-k8s.io/cluster-name": "test",
-						"capi-to-argocd/owned":          "true",
+						"capi-to-argocd/owned":           "true",
 					},
 				},
 			},
@@ -329,13 +308,10 @@ func TestBuildTakeAlongLabelsWithAutoMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			// Save original value and restore after test
-			oldAutoLabelCopy := EnableAutoLabelCopy
-			EnableAutoLabelCopy = true
-			defer func() { EnableAutoLabelCopy = oldAutoLabelCopy }()
+			t.Parallel()
 
-			result, errors := buildTakeAlongLabels(tt.testMock)
-			assert.Empty(t, errors)
+			result, errs := buildTakeAlongLabels(tt.testMock, cfg)
+			assert.Empty(t, errs)
 			assert.Equal(t, tt.testExpectedValues, result)
 		})
 	}
@@ -345,46 +321,41 @@ func TestBuildNamespacedName(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		testName                  string
-		testMock                  string
-		testNamespace             string
-		testEnableNamespacedNames bool
-		testExpectedError         bool
-		testExpectedValues        types.NamespacedName
+		testName           string
+		testMock           string
+		testNamespace      string
+		testConfig         *Config
+		testExpectedValues types.NamespacedName
 	}{
-		{"test type with valid fields", "test-XXX-kubeconfig", "test-ns", false, false,
+		{"test type with valid fields", "test-XXX-kubeconfig", "test-ns",
+			&Config{ArgoNamespace: "argocd", EnableNamespacedNames: false},
 			types.NamespacedName{
 				Name:      "cluster-test-XXX",
-				Namespace: ArgoNamespace,
+				Namespace: "argocd",
 			},
 		},
-		{"test type with valid fields and namespaced names", "test-XXX-kubeconfig", "test-ns", true, false,
+		{"test type with valid fields and namespaced names", "test-XXX-kubeconfig", "test-ns",
+			&Config{ArgoNamespace: "argocd", EnableNamespacedNames: true},
 			types.NamespacedName{
 				Name:      "cluster-test-ns-test-XXX",
-				Namespace: ArgoNamespace,
+				Namespace: "argocd",
 			},
 		},
-		{"test type with non-valid fields", "capi-XXX", "test-ns", false, false,
+		{"test type with non-valid fields", "capi-XXX", "test-ns",
+			&Config{ArgoNamespace: "argocd", EnableNamespacedNames: false},
 			types.NamespacedName{
 				Name:      "cluster-capi-XXX",
-				Namespace: ArgoNamespace,
+				Namespace: "argocd",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			oldConf := EnableNamespacedNames
-			EnableNamespacedNames = tt.testEnableNamespacedNames
-			s := BuildNamespacedName(tt.testMock, tt.testNamespace)
-			EnableNamespacedNames = oldConf
+			t.Parallel()
 
-			if !tt.testExpectedError {
-				assert.NotNil(t, s)
-				assert.Equal(t, tt.testExpectedValues.Name, s.Name)
-				assert.Equal(t, tt.testExpectedValues.Namespace, s.Namespace)
-			} else {
-				assert.Nil(t, s)
-			}
+			s := BuildNamespacedName(tt.testMock, tt.testNamespace, tt.testConfig)
+			assert.Equal(t, tt.testExpectedValues.Name, s.Name)
+			assert.Equal(t, tt.testExpectedValues.Namespace, s.Namespace)
 		})
 	}
 }
@@ -422,7 +393,7 @@ func TestValidateClusterIgnoreLabel(t *testing.T) {
 					Name:      "test",
 					Namespace: "test",
 					Labels: map[string]string{
-						"foo":                         "bar",
+						"foo":                           "bar",
 						"ignore-cluster.capi-to-argocd": "",
 					},
 				},
@@ -439,4 +410,35 @@ func TestValidateClusterIgnoreLabel(t *testing.T) {
 			assert.Equal(t, tt.testExpectedValue, result)
 		})
 	}
+}
+
+func TestSentinelErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ErrWrongSecretType is distinguishable", func(t *testing.T) {
+		t.Parallel()
+
+		wrapped := fmt.Errorf("context: %w", ErrWrongSecretType)
+
+		assert.True(t, errors.Is(wrapped, ErrWrongSecretType))
+		assert.False(t, errors.Is(wrapped, ErrWrongSecretKey))
+	})
+
+	t.Run("ErrWrongSecretKey is distinguishable", func(t *testing.T) {
+		t.Parallel()
+
+		wrapped := fmt.Errorf("context: %w", ErrWrongSecretKey)
+
+		assert.True(t, errors.Is(wrapped, ErrWrongSecretKey))
+		assert.False(t, errors.Is(wrapped, ErrWrongSecretType))
+	})
+
+	t.Run("ErrInvalidKubeConfig is distinguishable", func(t *testing.T) {
+		t.Parallel()
+
+		wrapped := fmt.Errorf("context: %w", ErrInvalidKubeConfig)
+
+		assert.True(t, errors.Is(wrapped, ErrInvalidKubeConfig))
+		assert.False(t, errors.Is(wrapped, ErrWrongSecretType))
+	})
 }

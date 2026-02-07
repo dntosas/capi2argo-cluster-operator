@@ -3,7 +3,7 @@ package controllers
 import (
 	"bytes"
 	"context"
-	goErr "errors"
+	"errors"
 	"os"
 	"strconv"
 	"time"
@@ -13,46 +13,62 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-var (
-	// EnableGarbageCollection enables experimental GC feature.
+// Config holds the controller configuration.
+type Config struct {
+	// ArgoNamespace is the namespace where ArgoCD cluster secrets are created.
+	ArgoNamespace string
+
+	// EnableGarbageCollection enables deletion of ArgoCD secrets when the
+	// corresponding CAPI secret is deleted.
 	EnableGarbageCollection bool
 
-	// EnableNamespacedNames represents a mode where the cluster name is always
-	// prepended by the cluster namespace in all generated secrets.
+	// EnableNamespacedNames prepends the cluster namespace to the generated
+	// ArgoCD secret name to avoid collisions across namespaces.
 	EnableNamespacedNames bool
 
-	// EnableAutoLabelCopy enables automatic copying of all labels from CAPI Cluster
-	// to ArgoCD secret, without requiring take-along labels.
+	// EnableAutoLabelCopy enables automatic copying of all non-system labels
+	// from CAPI Cluster resources to ArgoCD secrets.
 	EnableAutoLabelCopy bool
-)
+}
 
-func init() {
-	// Dummy configuration init.
-	// TODO: Handle this as part of root config.
-	ArgoNamespace = os.Getenv("ARGOCD_NAMESPACE")
-	if ArgoNamespace == "" {
-		ArgoNamespace = "argocd"
+// LoadConfigFromEnv builds a Config from environment variables with sensible defaults.
+func LoadConfigFromEnv() Config {
+	argoNS := os.Getenv("ARGOCD_NAMESPACE")
+	if argoNS == "" {
+		argoNS = "argocd"
 	}
 
-	EnableGarbageCollection, _ = strconv.ParseBool(os.Getenv("ENABLE_GARBAGE_COLLECTION"))
-	EnableNamespacedNames, _ = strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
-	EnableAutoLabelCopy, _ = strconv.ParseBool(os.Getenv("ENABLE_AUTO_LABEL_COPY"))
+	gc, _ := strconv.ParseBool(os.Getenv("ENABLE_GARBAGE_COLLECTION"))
+	ns, _ := strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
+	al, _ := strconv.ParseBool(os.Getenv("ENABLE_AUTO_LABEL_COPY"))
+
+	return Config{
+		ArgoNamespace:           argoNS,
+		EnableGarbageCollection: gc,
+		EnableNamespacedNames:   ns,
+		EnableAutoLabelCopy:     al,
+	}
 }
 
 // Capi2Argo reconciles a Secret object.
 type Capi2Argo struct {
 	client.Client
+
 	Log        logr.Logger
 	Scheme     *runtime.Scheme
 	SyncPeriod time.Duration
+	Config     Config
 }
 
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -62,61 +78,40 @@ type Capi2Argo struct {
 func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("secret", req.NamespacedName)
 
-	// TODO: Check if secret is on allowed Namespaces.
-
-	// Validate Secret.Metadata.Name complies with CAPI pattern: <clusterName>-kubeconfig
+	// Validate Secret.Metadata.Name complies with CAPI pattern: <clusterName>-kubeconfig.
+	// Don't requeue; the watch predicate already filters non-matching secrets,
+	// but this is a safety check.
 	if !ValidateCapiNaming(req.NamespacedName) {
-		// Still requeue to check if naming becomes valid later
-		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
+		return ctrl.Result{}, nil
 	}
 
-	// Fetch CapiSecret
+	// Fetch CapiSecret.
 	var capiSecret corev1.Secret
 
 	err := r.Get(ctx, req.NamespacedName, &capiSecret)
 	if err != nil {
-		// If we get error reading the object - requeue the request.
+		// If we get an unexpected error reading the object, requeue the request.
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
 
-		// If secret is deleted and GC is enabled, mark ArgoSecret for deletion.
-		if EnableGarbageCollection {
-			labelSelector := map[string]string{
-				"capi-to-argocd/cluster-secret-name": req.NamespacedName.Name,
-				"capi-to-argocd/cluster-namespace":   req.NamespacedName.Namespace,
-			}
-			listOption := client.MatchingLabels(labelSelector)
-			secretList := &corev1.SecretList{}
-
-			err = r.List(context.Background(), secretList, listOption)
-			if err != nil {
-				log.Error(err, "Failed to list Cluster Secrets")
-
+		// Secret was deleted. If GC is enabled, clean up the corresponding ArgoSecret.
+		if r.Config.EnableGarbageCollection {
+			if err := r.deleteArgoSecretByLabels(ctx, log, req.NamespacedName); err != nil {
 				return ctrl.Result{}, err
 			}
-
-			if err := r.Delete(ctx, &secretList.Items[0]); err != nil {
-				log.Error(err, "Failed to delete ArgoSecret")
-
-				return ctrl.Result{}, err
-			}
-
-			log.Info("Deleted successfully of ArgoSecret")
 
 			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
-		return ctrl.Result{RequeueAfter: r.SyncPeriod}, client.IgnoreNotFound(err)
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	log.Info("Fetched CapiSecret")
 
 	// Validate CapiSecret.type is matching CAPI convention.
-	// if capiSecret.Type != "cluster.x-k8s.io/secret" {
-	err = ValidateCapiSecret(&capiSecret)
-	if err != nil {
-		log.Info("Ignoring secret as it's missing proper CAPI type", "type", capiSecret.Type)
+	if err = ValidateCapiSecret(&capiSecret); err != nil {
+		log.Info("Ignoring secret, missing proper CAPI type", "type", capiSecret.Type)
 
 		return ctrl.Result{}, err
 	}
@@ -126,8 +121,7 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	ns := req.NamespacedName.Namespace
 	capiCluster := NewCapiCluster(nn, ns)
 
-	err = capiCluster.Unmarshal(&capiSecret)
-	if err != nil {
+	if err = capiCluster.Unmarshal(&capiSecret); err != nil {
 		log.Error(err, "Failed to unmarshal CapiCluster")
 
 		return ctrl.Result{}, err
@@ -137,55 +131,30 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	err = r.Get(ctx, types.NamespacedName{Name: capiSecret.Labels[clusterv1.ClusterNameLabel], Namespace: req.Namespace}, clusterObject)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
 			log.Info("CAPI Cluster not found, cleaning up ArgoCD secret if exists")
 
-			// Try to find and delete any existing ArgoCD secret
-			labelSelector := map[string]string{
-				"capi-to-argocd/cluster-secret-name": req.NamespacedName.Name,
-				"capi-to-argocd/cluster-namespace":   req.NamespacedName.Namespace,
-			}
-			listOption := client.MatchingLabels(labelSelector)
-			secretList := &corev1.SecretList{}
-
-			err = r.List(ctx, secretList, listOption, client.InNamespace(ArgoNamespace))
-			if err != nil {
-				log.Error(err, "Failed to list ArgoCD secrets for cleanup")
-
-				// Requeue to retry cleanup later
-				return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
-			}
-
-			if len(secretList.Items) > 0 {
-				if err := r.Delete(ctx, &secretList.Items[0]); err != nil && !errors.IsNotFound(err) {
-					log.Error(err, "Failed to delete orphaned ArgoSecret")
-
-					// Requeue to retry deletion later
-					return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
-				}
-
-				log.Info("Deleted orphaned ArgoSecret because CAPI Cluster no longer exists")
+			if delErr := r.deleteArgoSecretByLabels(ctx, log, req.NamespacedName); delErr != nil {
+				return ctrl.Result{RequeueAfter: r.SyncPeriod}, delErr
 			}
 
 			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
-		// Other errors should be returned with requeue
 		log.Error(err, "Failed to get CAPI Cluster object")
 
 		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
-	// Check if the cluster has the ignore label
+	// Check if the cluster has the ignore label.
 	if validateClusterIgnoreLabel(clusterObject) {
-		log.Info("The cluster has label to be ignored, skipping...")
+		log.Info("Cluster has ignore label, skipping")
 
-		// Still requeue to check if ignore label is removed later
 		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	// Construct ArgoCluster from CapiCluster and CapiSecret.Metadata.
-	argoCluster, err := NewArgoCluster(capiCluster, &capiSecret, clusterObject)
+	argoCluster, err := NewArgoCluster(capiCluster, &capiSecret, clusterObject, &r.Config)
 	if err != nil {
 		log.Error(err, "Failed to construct ArgoCluster")
 
@@ -194,166 +163,175 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	// Convert ArgoCluster into ArgoSecret to work natively on k8s objects.
 	log = r.Log.WithValues("cluster", argoCluster.NamespacedName)
-	argoSecret, err := argoCluster.ConvertToSecret()
 
+	argoSecret, err := argoCluster.ConvertToSecret()
 	if err != nil {
 		log.Error(err, "Failed to convert ArgoCluster to ArgoSecret")
 
 		return ctrl.Result{}, err
 	}
 
-	// Represent a possible existing ArgoSecret.
+	// Check if ArgoSecret exists.
 	var existingSecret corev1.Secret
 
-	var exists bool
-
-	// Check if ArgoSecret exists.
 	err = r.Get(ctx, argoCluster.NamespacedName, &existingSecret)
-	if errors.IsNotFound(err) {
-		exists = false
+	if apierrors.IsNotFound(err) {
+		// ArgoSecret does not exist, create it.
+		log.Info("ArgoSecret does not exist, creating")
 
-		log.Info("ArgoSecret does not exists, creating..")
-	} else if err == nil {
-		exists = true
-
-		log.Info("ArgoSecret exists, checking state..")
-	} else {
-		log.Error(err, "Failed to fetch ArgoSecret to check if exists")
-
-		return ctrl.Result{}, err
-	}
-
-	// Reconcile ArgoSecret:
-	// - If does not exists:
-	//     1) Create it.
-	// - If exists:
-	//     1) Parse labels and check if it is meant to be managed by the controller.
-	//     2) If it is controller-managed, check if updates needed and apply them.
-	switch exists {
-	case false:
 		if err := r.Create(ctx, argoSecret); err != nil {
 			log.Error(err, "Failed to create ArgoSecret")
 
 			return ctrl.Result{}, err
 		}
 
-		log.Info("Created new ArgoSecret")
+		secretsCreatedTotal.Inc()
+		log.Info("Created ArgoSecret")
 
-		// Requeue to verify creation and monitor for future changes
 		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to fetch ArgoSecret")
 
-	case true:
-		log.Info("Checking if ArgoSecret is managed by the Controller")
+		return ctrl.Result{}, err
+	}
 
-		err := ValidateObjectOwner(existingSecret)
-		if err != nil {
-			log.Info("Not managed by Controller, skipping...")
+	// ArgoSecret exists, check if it needs updating.
+	log.Info("ArgoSecret exists, checking state")
 
-			// Still requeue to check if ownership changes later
-			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
-		}
-
-		log.Info("Checking if ArgoSecret is out-of-sync with")
-
-		changed := false
-
-		if !bytes.Equal(existingSecret.Data["name"], []byte(argoCluster.ClusterName)) {
-			existingSecret.Data["name"] = []byte(argoCluster.ClusterName)
-			changed = true
-		}
-
-		if !bytes.Equal(existingSecret.Data["server"], []byte(argoCluster.ClusterServer)) {
-			existingSecret.Data["server"] = []byte(argoCluster.ClusterServer)
-			changed = true
-		}
-
-		if !bytes.Equal(existingSecret.Data["config"], []byte(argoSecret.Data["config"])) {
-			existingSecret.Data["config"] = []byte(argoSecret.Data["config"])
-			changed = true
-		}
-
-		// Check if take-along labels from argoCluster.TakeAlongLabels exist existingSecret.Labels and have the same values.
-		// If not set changed to true and update existingSecret.Labels.
-		log.Info("Checking for take-along labels")
-		log.Info("Take along labels", "labels", argoCluster.TakeAlongLabels)
-
-		argoSecretTakenAlongLabels := []string{}
-
-		for l := range argoCluster.TakeAlongLabels {
-			if strings.HasPrefix(l, clusterTakenFromClusterKey) {
-				key := strings.Split(l, clusterTakenFromClusterKey)[1]
-				argoSecretTakenAlongLabels = append(argoSecretTakenAlongLabels, key)
-			}
-		}
-		// Find difference between secrets prefixed with `taken-from-cluster-label.capi-to-argocd`
-		// between existingSecret.Labels and argoSecretTakenAlongLabels
-		// in order to handle removed 'take-from'-labels from the cluster resource
-		for k := range existingSecret.Labels {
-			if strings.HasPrefix(k, clusterTakenFromClusterKey) {
-				key := strings.Split(k, clusterTakenFromClusterKey)[1]
-				if !slices.Contains(argoSecretTakenAlongLabels, key) {
-					delete(existingSecret.Labels, k)
-					delete(existingSecret.Labels, key)
-
-					changed = true
-				}
-			}
-		}
-
-		// Update secrets labels with current values
-		for k, v := range argoCluster.TakeAlongLabels {
-			// check if label exists in map
-			if val, ok := existingSecret.Labels[k]; ok {
-				// check if label value is the same
-				if val != v {
-					log.Info("Updating value of label in ArgoSecret", "label", k, "value", val)
-
-					existingSecret.Labels[k] = v
-					changed = true
-				}
-			} else {
-				log.Info("Adding missing label in ArgoSecret", "label", k)
-
-				existingSecret.Labels[k] = v
-				changed = true
-			}
-		}
-
-		if changed {
-			log.Info("Updating out-of-sync ArgoSecret")
-
-			if err := r.Update(ctx, &existingSecret); err != nil {
-				log.Error(err, "Failed to update ArgoSecret")
-
-				return ctrl.Result{}, err
-			}
-
-			log.Info("Updated successfully of ArgoSecret")
-
-			// Requeue to monitor for future changes
-			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
-		}
-
-		log.Info("ArgoSecret is in-sync with CapiCluster, skipping...")
+	if err := ValidateObjectOwner(existingSecret); err != nil {
+		log.Info("ArgoSecret not managed by controller, skipping")
 
 		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
-	// Fallback (should not be reached)
+	log.Info("Checking if ArgoSecret is out-of-sync")
+
+	changed := false
+
+	if !bytes.Equal(existingSecret.Data["name"], []byte(argoCluster.ClusterName)) {
+		existingSecret.Data["name"] = []byte(argoCluster.ClusterName)
+		changed = true
+	}
+
+	if !bytes.Equal(existingSecret.Data["server"], []byte(argoCluster.ClusterServer)) {
+		existingSecret.Data["server"] = []byte(argoCluster.ClusterServer)
+		changed = true
+	}
+
+	if !bytes.Equal(existingSecret.Data["config"], argoSecret.Data["config"]) {
+		existingSecret.Data["config"] = argoSecret.Data["config"]
+		changed = true
+	}
+
+	// Check if take-along labels need synchronization.
+	log.V(1).Info("Checking take-along labels", "labels", argoCluster.TakeAlongLabels)
+
+	argoSecretTakenAlongLabels := []string{}
+
+	for l := range argoCluster.TakeAlongLabels {
+		if strings.HasPrefix(l, clusterTakenFromClusterKey) {
+			key := strings.Split(l, clusterTakenFromClusterKey)[1]
+			argoSecretTakenAlongLabels = append(argoSecretTakenAlongLabels, key)
+		}
+	}
+
+	// Remove stale take-along labels.
+	for k := range existingSecret.Labels {
+		if strings.HasPrefix(k, clusterTakenFromClusterKey) {
+			key := strings.Split(k, clusterTakenFromClusterKey)[1]
+			if !slices.Contains(argoSecretTakenAlongLabels, key) {
+				delete(existingSecret.Labels, k)
+				delete(existingSecret.Labels, key)
+
+				changed = true
+			}
+		}
+	}
+
+	// Update labels with current values.
+	for k, v := range argoCluster.TakeAlongLabels {
+		if val, ok := existingSecret.Labels[k]; ok {
+			if val != v {
+				log.V(1).Info("Updating label in ArgoSecret", "label", k, "oldValue", val, "newValue", v)
+
+				existingSecret.Labels[k] = v
+				changed = true
+			}
+		} else {
+			log.V(1).Info("Adding label to ArgoSecret", "label", k)
+
+			existingSecret.Labels[k] = v
+			changed = true
+		}
+	}
+
+	if changed {
+		log.Info("Updating out-of-sync ArgoSecret")
+
+		if err := r.Update(ctx, &existingSecret); err != nil {
+			log.Error(err, "Failed to update ArgoSecret")
+
+			return ctrl.Result{}, err
+		}
+
+		secretsUpdatedTotal.Inc()
+		log.Info("Updated ArgoSecret")
+
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
+	}
+
+	log.Info("ArgoSecret is in-sync, skipping")
+
 	return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 }
 
-// SetupWithManager ..
+// SetupWithManager registers the controller with the manager and configures event filtering.
 func (r *Capi2Argo) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Secret{}).
+		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			return ValidateCapiNaming(types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()})
+		}))).
 		Complete(r)
+}
+
+// deleteArgoSecretByLabels finds and deletes an ArgoCD secret matching the given CAPI source labels.
+func (r *Capi2Argo) deleteArgoSecretByLabels(ctx context.Context, log logr.Logger, nn types.NamespacedName) error {
+	labelSelector := map[string]string{
+		"capi-to-argocd/cluster-secret-name": nn.Name,
+		"capi-to-argocd/cluster-namespace":   nn.Namespace,
+	}
+
+	secretList := &corev1.SecretList{}
+
+	err := r.List(ctx, secretList, client.MatchingLabels(labelSelector), client.InNamespace(r.Config.ArgoNamespace))
+	if err != nil {
+		log.Error(err, "Failed to list ArgoCD secrets")
+
+		return err
+	}
+
+	if len(secretList.Items) == 0 {
+		log.Info("No ArgoSecret found to delete")
+
+		return nil
+	}
+
+	if err := r.Delete(ctx, &secretList.Items[0]); err != nil && !apierrors.IsNotFound(err) {
+		log.Error(err, "Failed to delete ArgoSecret")
+
+		return err
+	}
+
+	secretsDeletedTotal.Inc()
+	log.Info("Deleted ArgoSecret", "name", secretList.Items[0].Name)
+
+	return nil
 }
 
 // ValidateObjectOwner checks whether reconciled object is managed by CACO or not.
 func ValidateObjectOwner(s corev1.Secret) error {
 	if s.ObjectMeta.Labels["capi-to-argocd/owned"] != "true" {
-		return goErr.New("not owned by CACO")
+		return errors.New("not owned by CACO")
 	}
 
 	return nil
