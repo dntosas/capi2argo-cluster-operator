@@ -120,7 +120,7 @@ func validateClusterIgnoreLabel(cluster *clusterv1.Cluster) bool {
 // - cluster.x-k8s.io/* labels (CAPI internal labels)
 // - capi-to-argocd/* labels (controller internal labels)
 // - take-along-label.capi-to-argocd.* labels (take-along markers)
-// - ignore-cluster.capi-to-argocd label (ignore marker)
+// - ignore-cluster.capi-to-argocd label (ignore marker).
 func buildAutoLabelCopy(clusterLabels map[string]string) map[string]string {
 	copyLabels := make(map[string]string)
 

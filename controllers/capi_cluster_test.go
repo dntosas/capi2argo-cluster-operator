@@ -80,6 +80,7 @@ func TestUnmarshal(t *testing.T) {
 					if c.KubeConfig.Users[0].User.CertData != nil {
 						assert.Eventually(t, func() bool {
 							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.CertData)
+
 							return err == nil
 						}, time.Second, 100*time.Millisecond)
 					}
@@ -87,6 +88,7 @@ func TestUnmarshal(t *testing.T) {
 					if c.KubeConfig.Users[0].User.KeyData != nil {
 						assert.Eventually(t, func() bool {
 							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.KeyData)
+
 							return err == nil
 						}, time.Second, 100*time.Millisecond)
 					}
@@ -94,12 +96,14 @@ func TestUnmarshal(t *testing.T) {
 					if c.KubeConfig.Users[0].User.Token != nil {
 						assert.Eventually(t, func() bool {
 							_, err := b64.StdEncoding.DecodeString(*c.KubeConfig.Users[0].User.Token)
+
 							return err == nil
 						}, time.Second, 100*time.Millisecond)
 					}
 
 					assert.Eventually(t, func() bool {
 						_, err := b64.StdEncoding.DecodeString(c.KubeConfig.Clusters[0].Cluster.CaData)
+
 						return err == nil
 					}, time.Second, 100*time.Millisecond)
 

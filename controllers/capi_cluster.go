@@ -95,6 +95,7 @@ func ValidateCapiSecret(s *corev1.Secret) error {
 		if s.Labels == nil {
 			return ErrWrongSecretType
 		}
+
 		if _, ok := s.Labels["cluster.x-k8s.io/cluster-name"]; !ok {
 			return ErrWrongSecretType
 		}

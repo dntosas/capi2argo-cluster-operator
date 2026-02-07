@@ -417,21 +417,27 @@ func TestSentinelErrors(t *testing.T) {
 
 	t.Run("ErrWrongSecretType is distinguishable", func(t *testing.T) {
 		t.Parallel()
+
 		wrapped := fmt.Errorf("context: %w", ErrWrongSecretType)
+
 		assert.True(t, errors.Is(wrapped, ErrWrongSecretType))
 		assert.False(t, errors.Is(wrapped, ErrWrongSecretKey))
 	})
 
 	t.Run("ErrWrongSecretKey is distinguishable", func(t *testing.T) {
 		t.Parallel()
+
 		wrapped := fmt.Errorf("context: %w", ErrWrongSecretKey)
+
 		assert.True(t, errors.Is(wrapped, ErrWrongSecretKey))
 		assert.False(t, errors.Is(wrapped, ErrWrongSecretType))
 	})
 
 	t.Run("ErrInvalidKubeConfig is distinguishable", func(t *testing.T) {
 		t.Parallel()
+
 		wrapped := fmt.Errorf("context: %w", ErrInvalidKubeConfig)
+
 		assert.True(t, errors.Is(wrapped, ErrInvalidKubeConfig))
 		assert.False(t, errors.Is(wrapped, ErrWrongSecretType))
 	})

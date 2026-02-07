@@ -8,3 +8,24 @@ linters:
     - lll
     - depguard
     - mnd
+    # init() is the standard pattern for scheme registration and Prometheus metrics.
+    - gochecknoinits
+    # Tests intentionally use the same package to access unexported functions.
+    - testpackage
+    # Table-driven tests and main() are legitimately longer than the default limit.
+    - funlen
+    # Reconcile functions in Kubernetes controllers are inherently complex;
+    # maintidx's default threshold is too aggressive for this pattern.
+    - maintidx
+  settings:
+    cyclop:
+      # Reconcile functions in k8s controllers are inherently complex.
+      max-complexity: 35
+    gocognit:
+      # Reconcile functions in k8s controllers are inherently complex.
+      min-complexity: 50
+    gocyclo:
+      # Reconcile functions in k8s controllers are inherently complex.
+      min-complexity: 35
+    nestif:
+      min-complexity: 9

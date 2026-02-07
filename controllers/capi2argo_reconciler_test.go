@@ -91,6 +91,7 @@ func TestMain(m *testing.M) {
 
 	testCancel()
 	time.Sleep(2 * time.Second)
+
 	_ = testEnv.Stop()
 
 	os.Exit(exitCode)

@@ -64,6 +64,7 @@ func LoadConfigFromEnv() Config {
 // Capi2Argo reconciles a Secret object.
 type Capi2Argo struct {
 	client.Client
+
 	Log        logr.Logger
 	Scheme     *runtime.Scheme
 	SyncPeriod time.Duration
@@ -284,6 +285,15 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 	return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 }
 
+// SetupWithManager registers the controller with the manager and configures event filtering.
+func (r *Capi2Argo) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+			return ValidateCapiNaming(types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()})
+		}))).
+		Complete(r)
+}
+
 // deleteArgoSecretByLabels finds and deletes an ArgoCD secret matching the given CAPI source labels.
 func (r *Capi2Argo) deleteArgoSecretByLabels(ctx context.Context, log logr.Logger, nn types.NamespacedName) error {
 	labelSelector := map[string]string{
@@ -316,15 +326,6 @@ func (r *Capi2Argo) deleteArgoSecretByLabels(ctx context.Context, log logr.Logge
 	log.Info("Deleted ArgoSecret", "name", secretList.Items[0].Name)
 
 	return nil
-}
-
-// SetupWithManager registers the controller with the manager and configures event filtering.
-func (r *Capi2Argo) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
-			return ValidateCapiNaming(types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()})
-		}))).
-		Complete(r)
 }
 
 // ValidateObjectOwner checks whether reconciled object is managed by CACO or not.
