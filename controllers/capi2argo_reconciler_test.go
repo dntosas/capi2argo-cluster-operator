@@ -160,6 +160,61 @@ func TestValidateObjectOwner(t *testing.T) {
 	}
 }
 
+func TestParseNamespaceList(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{"empty string returns nil", "", nil},
+		{"single namespace", "default", []string{"default"}},
+		{"multiple namespaces", "ns1,ns2,ns3", []string{"ns1", "ns2", "ns3"}},
+		{"spaces are trimmed", " ns1 , ns2 , ns3 ", []string{"ns1", "ns2", "ns3"}},
+		{"trailing comma ignored", "ns1,ns2,", []string{"ns1", "ns2"}},
+		{"only commas returns nil", ",,,", nil},
+		{"whitespace only returns nil", "  ,  ,  ", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := parseNamespaceList(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestIsNamespaceAllowed(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		allowedNamespaces []string
+		namespace         string
+		expected          bool
+	}{
+		{"all namespaces allowed when list is empty", nil, "anything", true},
+		{"all namespaces allowed when list is empty slice", []string{}, "anything", true},
+		{"namespace in allowed list", []string{"ns1", "ns2"}, "ns1", true},
+		{"namespace not in allowed list", []string{"ns1", "ns2"}, "ns3", false},
+		{"single allowed namespace matches", []string{"prod"}, "prod", true},
+		{"single allowed namespace rejects", []string{"prod"}, "staging", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Config{AllowedNamespaces: tt.allowedNamespaces}
+
+			assert.Equal(t, tt.expected, cfg.IsNamespaceAllowed(tt.namespace))
+		})
+	}
+}
+
 func MockReconcileReq(name string, namespace string) reconcile.Request {
 	return reconcile.Request{
 		NamespacedName: types.NamespacedName{
