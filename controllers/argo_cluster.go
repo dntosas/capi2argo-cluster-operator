@@ -114,6 +114,10 @@ func extractTakeAlongLabel(key string) (string, error) {
 
 // validateClusterIgnoreLabel returns true when the cluster has the clusterIgnoreKey label.
 func validateClusterIgnoreLabel(cluster *clusterv1.Cluster) bool {
+	if cluster == nil {
+		return false
+	}
+
 	clusterLabels := cluster.Labels
 
 	for k := range clusterLabels {

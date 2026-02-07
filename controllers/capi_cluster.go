@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"errors"
+	"strings"
+
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"strings"
 )
 
 // CapiClusterSecretType represents the CAPI managed secret type.

@@ -66,7 +66,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	// Validate Secret.Metadata.Name complies with CAPI pattern: <clusterName>-kubeconfig
 	if !ValidateCapiNaming(req.NamespacedName) {
-		return ctrl.Result{}, nil
+		// Still requeue to check if naming becomes valid later
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	// Fetch CapiSecret
@@ -103,10 +104,10 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 			log.Info("Deleted successfully of ArgoSecret")
 
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, client.IgnoreNotFound(err)
 	}
 
 	log.Info("Fetched CapiSecret")
@@ -136,14 +137,51 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 	err = r.Get(ctx, types.NamespacedName{Name: capiSecret.Labels[clusterv1.ClusterNameLabel], Namespace: req.Namespace}, clusterObject)
 	if err != nil {
-		log.Info("Failed to get Cluster object", "error", err)
+		if errors.IsNotFound(err) {
+			log.Info("CAPI Cluster not found, cleaning up ArgoCD secret if exists")
+
+			// Try to find and delete any existing ArgoCD secret
+			labelSelector := map[string]string{
+				"capi-to-argocd/cluster-secret-name": req.NamespacedName.Name,
+				"capi-to-argocd/cluster-namespace":   req.NamespacedName.Namespace,
+			}
+			listOption := client.MatchingLabels(labelSelector)
+			secretList := &corev1.SecretList{}
+
+			err = r.List(ctx, secretList, listOption, client.InNamespace(ArgoNamespace))
+			if err != nil {
+				log.Error(err, "Failed to list ArgoCD secrets for cleanup")
+
+				// Requeue to retry cleanup later
+				return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
+			}
+
+			if len(secretList.Items) > 0 {
+				if err := r.Delete(ctx, &secretList.Items[0]); err != nil && !errors.IsNotFound(err) {
+					log.Error(err, "Failed to delete orphaned ArgoSecret")
+
+					// Requeue to retry deletion later
+					return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
+				}
+
+				log.Info("Deleted orphaned ArgoSecret because CAPI Cluster no longer exists")
+			}
+
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
+		}
+
+		// Other errors should be returned with requeue
+		log.Error(err, "Failed to get CAPI Cluster object")
+
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, err
 	}
 
 	// Check if the cluster has the ignore label
 	if validateClusterIgnoreLabel(clusterObject) {
 		log.Info("The cluster has label to be ignored, skipping...")
 
-		return ctrl.Result{}, nil
+		// Still requeue to check if ignore label is removed later
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
 	// Construct ArgoCluster from CapiCluster and CapiSecret.Metadata.
@@ -201,7 +239,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 		log.Info("Created new ArgoSecret")
 
-		return ctrl.Result{}, nil
+		// Requeue to verify creation and monitor for future changes
+		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 
 	case true:
 		log.Info("Checking if ArgoSecret is managed by the Controller")
@@ -210,7 +249,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		if err != nil {
 			log.Info("Not managed by Controller, skipping...")
 
-			return ctrl.Result{}, nil
+			// Still requeue to check if ownership changes later
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
 		log.Info("Checking if ArgoSecret is out-of-sync with")
@@ -290,7 +330,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 
 			log.Info("Updated successfully of ArgoSecret")
 
-			return ctrl.Result{}, nil
+			// Requeue to monitor for future changes
+			return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 		}
 
 		log.Info("ArgoSecret is in-sync with CapiCluster, skipping...")
@@ -298,7 +339,8 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 	}
 
-	return ctrl.Result{}, nil
+	// Fallback (should not be reached)
+	return ctrl.Result{RequeueAfter: r.SyncPeriod}, nil
 }
 
 // SetupWithManager ..
