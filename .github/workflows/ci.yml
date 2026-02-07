@@ -9,6 +9,14 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'main.go'
+  pull_request:
+      paths:
+      - '.github/workflows/*'
+      - 'controllers/*'
+      - 'vendor/*'
+      - 'go.mod'
+      - 'go.sum'
+      - 'main.go'
 
 jobs:
   build:
@@ -29,12 +37,11 @@ jobs:
       - name: Run go vet
         run: make vet
 
-      # - name: Run go lint
-      #   uses: golangci/golangci-lint-action@v6
-      #   with:
-      #     version: v2.1.6
-      #     args: --timeout 5m --modules-download-mode=vendor --build-tags integration
+      - name: Run go lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.1.6
+          args: --timeout 5m --modules-download-mode=vendor --build-tags integration
 
       - name: Run go test
         run: make test
-

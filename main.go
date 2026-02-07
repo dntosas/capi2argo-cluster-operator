@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	//+kubebuilder:scaffold:imports
 )
 
 var (
@@ -51,26 +50,23 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-
-	var enableLeaderElection bool
-
-	var enableDryRun bool
-
-	var enableDebugMode bool
-
-	var probeAddr string
-
-	var syncDuration time.Duration
-
-	defaultSyncDuration, _ := time.ParseDuration("45s")
+	var (
+		metricsAddr          string
+		probeAddr            string
+		syncDuration         time.Duration
+		enableLeaderElection bool
+		enableDryRun         bool
+		enableDebugMode      bool
+	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.DurationVar(&syncDuration, "sync-duration", defaultSyncDuration, "The address the probe endpoint binds to.")
+	flag.DurationVar(&syncDuration, "sync-duration", 45*time.Second, "How often to re-sync cluster secrets.")
 	flag.BoolVar(&enableDryRun, "dry-run", false, "Run in dry-run mode.")
 	flag.BoolVar(&enableDebugMode, "debug", false, "Run in debug mode.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager. "+"Use this when deploying multiple pods so to ensure there is only one active controller manager.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Use this when deploying multiple pods to ensure there is only one active controller manager.")
 
 	opts := zap.Options{
 		Development: enableDebugMode,
@@ -79,6 +75,8 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	cfg := controllers.LoadConfigFromEnv()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -111,6 +109,7 @@ func main() {
 		Log:        ctrl.Log.WithName("capi2argo"),
 		Scheme:     mgr.GetScheme(),
 		SyncPeriod: syncDuration,
+		Config:     cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Capi2Argo")
 		os.Exit(1)

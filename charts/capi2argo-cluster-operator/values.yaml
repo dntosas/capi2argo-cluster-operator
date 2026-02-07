@@ -59,6 +59,7 @@ containerSecurityContext:
   runAsUser: 1001
   privileged: false
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   seccompProfile:
     type: RuntimeDefault
   capabilities:
@@ -102,7 +103,10 @@ startupProbe:
   failureThreshold: 6
   successThreshold: 1
 
-podDisruptionBudget: {}
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
 
 metrics:
   enabled: false
@@ -118,6 +122,11 @@ metrics:
     honorLabels: false
     additionalLabels: {}
     jobLabel: ""
+
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
 
 extraDeploy: []
 kubeVersion: ""

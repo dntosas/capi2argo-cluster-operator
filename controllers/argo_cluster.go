@@ -3,25 +3,15 @@
 package controllers
 
 import (
-	// b64 "encoding/base64".
 	"encoding/json"
-	// "errors".
 	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
-)
-
-var (
-	// ArgoNamespace represents the Namespace that hold ArgoCluster secrets.
-	ArgoNamespace string
-	// TestKubeConfig represents.
-	TestKubeConfig *rest.Config
 )
 
 const (
@@ -61,8 +51,8 @@ type ArgoTLS struct {
 	KeyData  *string `json:"keyData,omitempty"`
 }
 
-// NewArgoCluster return a new ArgoCluster.
-func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster) (*ArgoCluster, error) {
+// NewArgoCluster returns a new ArgoCluster constructed from CAPI resources.
+func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster, cfg *Config) (*ArgoCluster, error) {
 	log := ctrl.Log.WithName("argoCluster")
 
 	takeAlongLabels := map[string]string{}
@@ -70,15 +60,15 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 	var errList []string
 
 	if cluster != nil {
-		takeAlongLabels, errList = buildTakeAlongLabels(cluster)
+		takeAlongLabels, errList = buildTakeAlongLabels(cluster, cfg)
 		for _, e := range errList {
 			log.Info(e)
 		}
 	}
 
 	return &ArgoCluster{
-		NamespacedName: BuildNamespacedName(s.ObjectMeta.Name, s.ObjectMeta.Namespace),
-		ClusterName:    BuildClusterName(c.KubeConfig.Clusters[0].Name, s.ObjectMeta.Namespace),
+		NamespacedName: BuildNamespacedName(s.ObjectMeta.Name, s.ObjectMeta.Namespace, cfg),
+		ClusterName:    BuildClusterName(c.KubeConfig.Clusters[0].Name, s.ObjectMeta.Namespace, cfg),
 		ClusterServer:  c.KubeConfig.Clusters[0].Cluster.Server,
 		ClusterLabels: map[string]string{
 			"capi-to-argocd/cluster-secret-name": c.Name + "-kubeconfig",
@@ -106,9 +96,10 @@ func extractTakeAlongLabel(key string) (string, error) {
 			}
 		}
 
-		return "", fmt.Errorf("invalid take-along label. missing key after '/': %s", key)
+		return "", fmt.Errorf("invalid take-along label, missing key after '/': %s", key)
 	}
-	// Not an take-along label. Return nil
+
+	// Not a take-along label.
 	return "", nil
 }
 
@@ -118,15 +109,9 @@ func validateClusterIgnoreLabel(cluster *clusterv1.Cluster) bool {
 		return false
 	}
 
-	clusterLabels := cluster.Labels
+	_, exists := cluster.Labels[clusterIgnoreKey]
 
-	for k := range clusterLabels {
-		if k == clusterIgnoreKey {
-			return true
-		}
-	}
-
-	return false
+	return exists
 }
 
 // buildAutoLabelCopy copies all cluster labels except system and internal labels.
@@ -140,7 +125,6 @@ func buildAutoLabelCopy(clusterLabels map[string]string) map[string]string {
 	copyLabels := make(map[string]string)
 
 	for key, value := range clusterLabels {
-		// Skip system and internal labels
 		if strings.HasPrefix(key, "kubernetes.io/") ||
 			strings.HasPrefix(key, "cluster.x-k8s.io/") ||
 			strings.HasPrefix(key, "capi-to-argocd/") ||
@@ -149,29 +133,27 @@ func buildAutoLabelCopy(clusterLabels map[string]string) map[string]string {
 			continue
 		}
 
-		// Copy the label as-is
 		copyLabels[key] = value
 	}
 
 	return copyLabels
 }
 
-// buildTakeAlongLabels returns a list of valid take-along labels from a cluster.
-// If EnableAutoLabelCopy is true, it copies all cluster labels automatically.
+// buildTakeAlongLabels returns valid take-along labels from a cluster.
+// If Config.EnableAutoLabelCopy is true, it copies all non-system labels automatically.
 // Otherwise, it uses the take-along label mechanism for backward compatibility.
-func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []string) {
+func buildTakeAlongLabels(cluster *clusterv1.Cluster, cfg *Config) (map[string]string, []string) {
 	name := cluster.Name
 	namespace := cluster.Namespace
 	clusterLabels := cluster.Labels
 
-	// If auto label copy is enabled, copy all labels except system labels
-	if EnableAutoLabelCopy {
+	if cfg.EnableAutoLabelCopy {
 		return buildAutoLabelCopy(clusterLabels), []string{}
 	}
 
 	// Original behavior: use take-along labels
 	takeAlongLabels := []string{}
-	// Check labels keys that begin with clusterTakeAlongKey and extract the value after the last '/
+
 	for k := range clusterLabels {
 		l, err := extractTakeAlongLabel(k)
 		if err != nil {
@@ -185,13 +167,13 @@ func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []stri
 
 	takeAlongLabelsMap := make(map[string]string)
 
-	errors := []string{}
+	var errMsgs []string
 
 	if len(takeAlongLabels) > 0 {
 		for _, label := range takeAlongLabels {
 			if label != "" {
 				if _, ok := clusterLabels[label]; !ok {
-					errors = append(errors, fmt.Sprintf("take-along label '%s' not found on cluster resource: %s, namespace: %s. Ignoring", label, name, namespace))
+					errMsgs = append(errMsgs, fmt.Sprintf("take-along label '%s' not found on cluster resource: %s, namespace: %s. Ignoring", label, name, namespace))
 
 					continue
 				}
@@ -202,35 +184,32 @@ func buildTakeAlongLabels(cluster *clusterv1.Cluster) (map[string]string, []stri
 		}
 	}
 
-	return takeAlongLabelsMap, errors
+	return takeAlongLabelsMap, errMsgs
 }
 
-// BuildNamespacedName returns k8s native object identifier.
-func BuildNamespacedName(s string, namespace string) types.NamespacedName {
+// BuildNamespacedName returns the Kubernetes NamespacedName for the ArgoCD secret.
+func BuildNamespacedName(s string, namespace string, cfg *Config) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      "cluster-" + BuildClusterName(strings.TrimSuffix(s, "-kubeconfig"), namespace),
-		Namespace: ArgoNamespace,
+		Name:      "cluster-" + BuildClusterName(strings.TrimSuffix(s, "-kubeconfig"), namespace, cfg),
+		Namespace: cfg.ArgoNamespace,
 	}
 }
 
-// BuildClusterName returns cluster name after transformations applied (with/without namespace suffix, etc).
-func BuildClusterName(s string, namespace string) string {
+// BuildClusterName returns the cluster name with optional namespace prefix.
+func BuildClusterName(s string, namespace string, cfg *Config) string {
 	prefix := ""
-	if EnableNamespacedNames {
+	if cfg.EnableNamespacedNames {
 		prefix += namespace + "-"
 	}
 
 	return prefix + s
 }
 
-// ConvertToSecret converts an ArgoCluster into k8s native secret object.
+// ConvertToSecret converts an ArgoCluster into a Kubernetes Secret.
 func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
-	// if err := ValidateClusterTLSConfig(&a.ClusterConfig.TLSClientConfig); err != nil {
-	// 	return nil, err
-	// }
 	c, err := json.Marshal(a.ClusterConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshalling ArgoCluster config: %w", err)
 	}
 
 	mergedLabels := make(map[string]string)
@@ -265,18 +244,3 @@ func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
 
 	return argoSecret, nil
 }
-
-// ValidateClusterTLSConfig validates that we got proper based64 k/v fields.
-// func ValidateClusterTLSConfig(a *ArgoTLS) error {
-// 	for _, v := range []string{a.CaData, a.CertData, a.KeyData} {
-// 		// Check if field.value is empty
-// 		if v == "" {
-// 			return errors.New("missing key on ArgoTLS config")
-// 		}
-// 		// Check if field.value is valid b64 encoded string
-// 		if _, err := b64.StdEncoding.DecodeString(v); err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }

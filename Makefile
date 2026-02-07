@@ -6,8 +6,8 @@ USER = $(shell id -u)
 GROUP = $(shell id -g)
 PROJECT = "capi2argo-cluster-operator"
 GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT}/cmd.CommitHash=${COMMIT}"
-GO_IMAGE = "golang:1.23-alpine"
-GO_IMAGE_CI = "golangci/golangci-lint:v1.62.0"
+GO_IMAGE = "golang:1.24-alpine"
+GO_IMAGE_CI = "golangci/golangci-lint:v2.1.6"
 DISTROLESS_IMAGE = "gcr.io/distroless/static:nonroot"
 IMAGE_TAG_BASE ?= "ghcr.io/dntosas/${PROJECT}"
 
@@ -46,7 +46,7 @@ test: envtest ## Run go tests against code.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v -mod=vendor `go list ./...` -coverprofile cover.out
 
 .PHONY: ci
-ci: fmt vet test ## Run go fmt/vet/lint/tests against the code.
+ci: fmt vet lint test ## Run go fmt/vet/lint/tests against the code.
 
 .PHONY: modsync
 modsync: ## Run go mod tidy && vendor.
