@@ -2,41 +2,39 @@
 
 [![CI](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/ci.yml) | [![Go Report](https://goreportcard.com/badge/github.com/dntosas/capi2argo-cluster-operator)](https://goreportcard.com/badge/github.com/dntosas/capi2argo-cluster-operator) | [![Go Release](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/go-release.yml/badge.svg)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/go-release.yml) | [![Helm Chart Release](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/helm-release.yml/badge.svg)](https://github.com/dntosas/capi2argo-cluster-operator/actions/workflows/helm-release.yml) | [![codecov](https://codecov.io/gh/dntosas/capi2argo-cluster-operator/branch/main/graph/badge.svg?token=5GDS0GGTY3)](https://codecov.io/gh/dntosas/capi2argo-cluster-operator)
 
-Capi-2-Argo Cluster Operator (CACO) converts ClusterAPI Cluster credentials into ArgoCD Cluster definitions and keep them synchronized. It aims to act as an integration bridge and solve an automation gap for users that combine these tools to provision Kubernetes Clusters.
+**Capi-2-Argo Cluster Operator (CACO)** converts [ClusterAPI](https://cluster-api.sigs.k8s.io/) cluster credentials into [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) cluster definitions and keeps them synchronized. It bridges the automation gap for teams that use ClusterAPI to provision Kubernetes clusters and ArgoCD to manage workloads on them.
 
-## What It Does
+## The Problem
 
-Probably to be here, you are already aware of **ClusterAPI** and **ArgoCD**. If not, lets say few words about these projects and what they want to offer:
+[ClusterAPI](https://cluster-api.sigs.k8s.io/) provides declarative APIs for provisioning, upgrading, and operating multiple Kubernetes clusters. [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) is a GitOps continuous delivery tool that deploys applications to target Kubernetes clusters.
 
-- [ClusterAPI](https://cluster-api.sigs.k8s.io/) provides declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. In simple words, users can define all aspects of their Kubernetes setup as CRDs and CAPI controller -which follows [operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)- is responsible to reconcile on them and keep their desired state.
-
-- [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) is a declarative, GitOps continuous delivery tool for Kubernetes. It automates the deployment of the desired application states in the specified target environments. In simple words, give a Git and a target Kubernetes Cluster and Argo will keep you package up, running and always in-sync with your source.
-
-So, we have CAPI that enables us to define Clusters as native k8s objects and ArgoCD that can take these objects and deploy them. Let's demonstrate how a pipeline like this could look like:
+A typical pipeline looks like this:
 
 ![flow-without-capi2argo](docs/flow-without-operator.png)
 
-0. Git holds multiple Kubernetes Clusters definitions as CRDs
-1. Argo watches these resources from Git
-2. Argo deploys definitions on a Management Cluster
-3. CAPI reconciles on these definitions
-4. CAPI provisions these Clusters on Cloud Provider
-5. CAPI returns provisioned Cluster information as k8s Secrets
-6. :x: Argo is not aware of remote Clusters plus cannot authenticate to provision additional resources
+1. Git holds Kubernetes cluster definitions as CRDs
+2. ArgoCD watches these resources from Git
+3. ArgoCD deploys definitions on a Management Cluster
+4. ClusterAPI reconciles the definitions
+5. ClusterAPI provisions clusters on the cloud provider
+6. ClusterAPI stores provisioned cluster credentials as Kubernetes Secrets
+7. :x: **ArgoCD has no way to discover and authenticate to the new clusters**
 
-Ok, all good until here. But having bare naked k8s clusters is not something useful. Probably dozens of utils and addons are needed for a cluster to look handy (eg. CSI Drivers, Ingress Controllers, Monitoring, etc).
+## The Solution
 
-Argo can also take care of deploying these utils but eventually credentials will be essential to authenticate against target clusters. Of course, we can proceed with the following three manual steps to solve that:
+CACO watches for CAPI-managed kubeconfig secrets, converts them into ArgoCD-compatible cluster secrets, and keeps them in sync. This closes the loop:
 
-- Read CAPI credentials
-- Translate them to Argo types
-- Create new Argo credentials
+1. CACO detects CAPI cluster secrets
+2. CACO converts them to ArgoCD cluster definitions
+3. CACO creates/updates them in the ArgoCD namespace
+4. ArgoCD discovers the new clusters
+5. :heavy_check_mark: **ArgoCD deploys workloads to CAPI-provisioned clusters**
 
-But how can we automate this? Capi2Argo Cluster Operator was created so it can take care of above actions.
+![flow-with-capi2argo](docs/flow-with-operator.png)
 
-CACO implements them in an automated loop that watches for changing events in secret resources and if conditions are met to be a CAPI compliant, it converts and deploy them as Argo compatible ones. What is actually does under the hood, is a god simple [KRM](https://github.com/kubernetes/design-proposals-archive/blob/8da1442ea29adccea40693357d04727127e045ed/architecture/resource-management.md) transformation like this:
+### Secret Transformation
 
-Before we got only [CAPI Cluster Spec]():
+CACO transforms a CAPI kubeconfig secret:
 
 ```yaml
 kind: Secret
@@ -44,13 +42,13 @@ apiVersion: v1
 type: cluster.x-k8s.io/secret
 metadata:
   labels:
-    cluster.x-k8s.io/cluster-name: CAPICluster
-  name: CAPICluster-kubeconfig
+    cluster.x-k8s.io/cluster-name: my-cluster
+  name: my-cluster-kubeconfig
 data:
-  value: << CAPICluster KUBECONFIG based64-encoded >>
+  value: << base64-encoded kubeconfig >>
 ```
 
-After we have also [Argo Cluster Spec](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#clusters):
+Into an ArgoCD cluster secret:
 
 ```yaml
 kind: Secret
@@ -59,122 +57,211 @@ type: Opaque
 metadata:
   labels:
     argocd.argoproj.io/secret-type: cluster
-    capi-to-argocd/owned: "true" # Capi2Argo Controller Ownership Label
-  name: ArgoCluster
+    capi-to-argocd/owned: "true"
+  name: cluster-my-cluster
   namespace: argocd
 stringData:
-  name: CAPICluster
-  server: CAPIClusterHost
+  name: my-cluster
+  server: https://my-cluster.example.com:6443
   config: |
     {
       "tlsClientConfig": {
-        "caData": "b64-ca-cert",
-        "keyData": "b64-token",
-        "certData": "b64-cert",
+        "caData": "<base64-ca>",
+        "certData": "<base64-cert>",
+        "keyData": "<base64-key>"
       }
     }
 ```
 
-Above functionality use-case can be demonstrated by extending the Workflow mentioned above by automating following steps:
+## Installation
 
-6. CACO watches for CAPI cluster secrets
-7. CACO converts them to Argo Clusters
-8. CACO creates them as Argo Clusters
-9. Argo reads these new Clusters
-10. :heavy_check_mark: Argo provisions resources to CAPI Workload Clusters
+### Helm (Recommended)
 
-![flow-with-capi2argo](docs/flow-with-operator.png)
+```console
+helm repo add capi2argo https://dntosas.github.io/capi2argo-cluster-operator/
+helm repo update
+helm upgrade -i capi2argo capi2argo/capi2argo-cluster-operator
+```
 
-## Take along labels from cluster resources
+See the [chart values](./charts/capi2argo-cluster-operator/README.md) for all available configuration options.
 
-Capi-2-Argo Cluster Operator is able to take along labels from a `Cluster` resource and place them on the `Secret` resource that is created for the cluster. This is especially useful when using labels to instruct ArgoCD which clusters to sync with certain applications.
+## Configuration
 
-To enable this feature, add a label with this format to the `Cluster` resource: `take-along-label.capi-to-argocd.<label-key>: ""`.
+CACO is configured through environment variables (set via Helm values):
 
-The following example 
+| Environment Variable | Helm Value | Default | Description |
+|---|---|---|---|
+| `ARGOCD_NAMESPACE` | `argoCDNamespace` | `argocd` | Namespace where ArgoCD cluster secrets are created |
+| `ALLOWED_NAMESPACES` | `allowedNamespaces` | `""` (all) | Comma-separated list of namespaces to watch. Empty means all namespaces |
+| `ENABLE_GARBAGE_COLLECTION` | `garbageCollectionEnabled` | `false` | Delete ArgoCD secrets when the corresponding CAPI secret is deleted |
+| `ENABLE_NAMESPACED_NAMES` | `namespacedNamesEnabled` | `false` | Prepend cluster namespace to ArgoCD secret names to avoid collisions |
+| `ENABLE_AUTO_LABEL_COPY` | *(via `extraEnvVars`)* | `false` | Automatically copy all non-system labels from CAPI Cluster to ArgoCD secret |
+
+### CLI Flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--sync-duration` | `45s` | How often to re-sync cluster secrets |
+| `--metrics-bind-address` | `:8080` | Address for the Prometheus metrics endpoint |
+| `--health-probe-bind-address` | `:8081` | Address for health/readiness probes |
+| `--leader-elect` | `false` | Enable leader election for HA deployments |
+| `--debug` | `false` | Enable debug logging |
+| `--dry-run` | `false` | Run without making changes |
+
+## Features
+
+### Namespace Filtering
+
+By default CACO watches all namespaces for CAPI secrets. To limit it to specific namespaces, set a comma-separated list:
+
+```yaml
+# values.yaml
+allowedNamespaces: "team-a,team-b,production"
+```
+
+Or via environment variable:
+
+```bash
+ALLOWED_NAMESPACES=team-a,team-b,production
+```
+
+Secrets in namespaces not in the list are ignored entirely (they don't even trigger reconciliation).
+
+### Garbage Collection
+
+When enabled, CACO deletes the corresponding ArgoCD secret when a CAPI kubeconfig secret is deleted:
+
+```yaml
+# values.yaml
+garbageCollectionEnabled: true
+```
+
+### Ignoring Clusters
+
+To exclude a specific cluster from being synced to ArgoCD, add the ignore label to the `Cluster` resource:
 
 ```yaml
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
-metadata: 
-  name: ArgoCluster
-  namespace: default
-  labels: 
-    foo: bar
-    my.domain.com/env: stage
-    take-along-label.capi-to-argocd.foo: ""
-    take-along-label.capi-to-argocd.my.domain.com/env: ""
-spec: 
-// ..
+metadata:
+  name: my-cluster
+  labels:
+    ignore-cluster.capi-to-argocd: ""
 ```
-Results in the following `Secret` resource:
+
+### Take-Along Labels
+
+CACO can copy labels from a `Cluster` resource to the generated ArgoCD secret. This is useful for ArgoCD [ApplicationSet generators](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/) that select clusters by label.
+
+Add a label with the format `take-along-label.capi-to-argocd.<label-key>: ""`:
 
 ```yaml
-kind: Secret
-apiVersion: v1
-type: Opaque
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
 metadata:
-  name: ArgoCluster
-  namespace: argocd
+  name: my-cluster
+  namespace: default
   labels:
-    argocd.argoproj.io/secret-type: cluster
-    capi-to-argocd/owned: "true" 
-    foo: bar
-    my.domain.com/env: stage
-    taken-from-cluster-label.capi-to-argocd.foo: ""
-    taken-from-cluster-label.capi-to-argocd.my.domain.com/env: ""
-stringData:
-// ...
+    env: production
+    team: platform
+    take-along-label.capi-to-argocd.env: ""
+    take-along-label.capi-to-argocd.team: ""
+```
+
+The resulting ArgoCD secret will include:
+
+```yaml
+metadata:
+  labels:
+    env: production
+    team: platform
+    taken-from-cluster-label.capi-to-argocd.env: ""
+    taken-from-cluster-label.capi-to-argocd.team: ""
+```
+
+### Auto Label Copy
+
+As an alternative to take-along labels, enable automatic copying of **all** non-system labels:
+
+```bash
+ENABLE_AUTO_LABEL_COPY=true
+```
+
+This copies every label from the Cluster resource to the ArgoCD secret, except:
+- `kubernetes.io/*` (system labels)
+- `cluster.x-k8s.io/*` (CAPI internal labels)
+- `capi-to-argocd/*` (controller internal labels)
+
+### Namespaced Names
+
+When managing clusters across multiple namespaces, name collisions can occur (e.g., two namespaces both have a cluster named `prod`). Enable namespaced names to prepend the namespace:
+
+```yaml
+# values.yaml
+namespacedNamesEnabled: true
+```
+
+This changes the ArgoCD secret name from `cluster-prod` to `cluster-<namespace>-prod`.
+
+### Rancher Support
+
+CACO supports Rancher-managed clusters that use `Opaque` secret types instead of the standard CAPI type. Opaque secrets are accepted if they carry the `cluster.x-k8s.io/cluster-name` label.
+
+### Prometheus Metrics
+
+CACO exposes custom metrics on the `/metrics` endpoint:
+
+| Metric | Type | Description |
+|---|---|---|
+| `caco_argocd_secrets_created_total` | Counter | Total ArgoCD cluster secrets created |
+| `caco_argocd_secrets_updated_total` | Counter | Total ArgoCD cluster secrets updated |
+| `caco_argocd_secrets_deleted_total` | Counter | Total ArgoCD cluster secrets deleted |
+
+Enable the ServiceMonitor in the Helm chart:
+
+```yaml
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
 ```
 
 ## Use Cases
 
-1. Keeping your Production Pipelines DRY, everything as testable Code
-2. Avoid manual steps for credentials management through UI, cron scripts and orphaned YAML files
-3. Write end-2-end Infrastructure tests by bundling all the logic
-4. Enabler for creating trully dynamic environments when using ClusterAPI and ArgoCD
-
-## Installation
-
-**Helm**
-
-```console
-$ helm repo add capi2argo https://dntosas.github.io/capi2argo-cluster-operator/
-$ helm repo update
-$ helm upgrade -i capi2argo capi2argo/capi2argo-cluster-operator
-```
-
-Check additional values configuration in [chart readme file](./charts/capi2argo-cluster-operator/README.md).
+1. **DRY Production Pipelines** - Everything as testable, version-controlled code
+2. **Automated Credential Management** - No manual steps, UI clicks, or cron scripts
+3. **End-to-End Infrastructure Testing** - Bundle cluster provisioning and workload deployment
+4. **Dynamic Environments** - Automatically register new clusters with ArgoCD as they are provisioned
 
 ## Development
 
-Capi2Argo is builded upon the powerful [Operator SDK](link).
+### Prerequisites
 
-Gradually -and depends on how free time allow us- will try adopting all best practices that are suggested on the community, find more in [here](https://sdk.operatorframework.io/docs/best-practices/best-practices/).
-- `make all`
-- `make ci`
-- `make run`
-- `make docker-build`
+- Go 1.24+
+- A running Kubernetes cluster (or [kind](https://kind.sigs.k8s.io/) for local development)
+- [envtest](https://book.kubebuilder.io/reference/envtest.html) binaries (installed automatically via `make envtest`)
+
+### Common Commands
+
+```console
+make fmt          # Format code
+make vet          # Run go vet
+make lint         # Run golangci-lint
+make test         # Run tests (unit + integration via envtest)
+make ci           # Run fmt + vet + lint + test
+make build        # Build the binary (linux/amd64)
+make build-darwin # Build the binary (darwin/arm64)
+make run          # Run the controller locally against current kubeconfig
+make modsync      # Run go mod tidy + vendor
+```
+
+### Local Development with Helm
+
+```console
+make docker-build-dev   # Build dev Docker image
+make helm-deploy-dev    # Deploy to current cluster via Helm
+```
 
 ## Contributing
 
-TODO
-In the meantime, feel free to grab any of unimplemented bullets on the Roadmap section :).
-
-## Roadmap
-
-### v0.1.0
-
-- [x] Core Functionality: Convert CAPI to Argo Clusters
-- [x] Unit Tests
-- [x] Integration Tests
-- [x] Helm Chart Deployment
-- [x] FAQ and Docs
-
-### v0.2.0
-
-- [ ] Adopt [Operator Best Practices](https://sdk.operatorframework.io/docs/best-practices/best-practices/)
-- [x] Garbage Collection
-- [ ] Quickstart Deployment (Kind Cluster)
-- [ ] Support for filtering Namespaces
-- [x] Support for multi-arch Docker images (amd64/arm64)
+Contributions are welcome! Feel free to open issues or pull requests.

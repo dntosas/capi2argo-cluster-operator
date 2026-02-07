@@ -29,6 +29,10 @@ type Config struct {
 	// ArgoNamespace is the namespace where ArgoCD cluster secrets are created.
 	ArgoNamespace string
 
+	// AllowedNamespaces limits the controller to watch secrets only in the
+	// listed namespaces. An empty slice means all namespaces are watched.
+	AllowedNamespaces []string
+
 	// EnableGarbageCollection enables deletion of ArgoCD secrets when the
 	// corresponding CAPI secret is deleted.
 	EnableGarbageCollection bool
@@ -55,10 +59,45 @@ func LoadConfigFromEnv() Config {
 
 	return Config{
 		ArgoNamespace:           argoNS,
+		AllowedNamespaces:       parseNamespaceList(os.Getenv("ALLOWED_NAMESPACES")),
 		EnableGarbageCollection: gc,
 		EnableNamespacedNames:   ns,
 		EnableAutoLabelCopy:     al,
 	}
+}
+
+// parseNamespaceList splits a comma-separated namespace string into a cleaned slice.
+// An empty input returns nil (meaning all namespaces are allowed).
+func parseNamespaceList(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+
+	for _, p := range parts {
+		ns := strings.TrimSpace(p)
+		if ns != "" {
+			result = append(result, ns)
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+
+	return result
+}
+
+// IsNamespaceAllowed returns true if the namespace is in the allowed list,
+// or if no namespace filtering is configured (empty AllowedNamespaces).
+func (c *Config) IsNamespaceAllowed(namespace string) bool {
+	if len(c.AllowedNamespaces) == 0 {
+		return true
+	}
+
+	return slices.Contains(c.AllowedNamespaces, namespace)
 }
 
 // Capi2Argo reconciles a Secret object.
@@ -289,7 +328,9 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 func (r *Capi2Argo) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
-			return ValidateCapiNaming(types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()})
+			nn := types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}
+
+			return ValidateCapiNaming(nn) && r.Config.IsNamespaceAllowed(obj.GetNamespace())
 		}))).
 		Complete(r)
 }
