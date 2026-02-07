@@ -237,7 +237,7 @@ metrics:
 
 ### Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - A running Kubernetes cluster (or [kind](https://kind.sigs.k8s.io/) for local development)
 - [envtest](https://book.kubebuilder.io/reference/envtest.html) binaries (installed automatically via `make envtest`)
 

@@ -6,7 +6,7 @@ USER = $(shell id -u)
 GROUP = $(shell id -g)
 PROJECT = "capi2argo-cluster-operator"
 GOBUILD_OPTS = -ldflags="-s -w -X ${PROJECT}/cmd.Version=${VERSION} -X ${PROJECT}/cmd.CommitHash=${COMMIT}"
-GO_IMAGE = "golang:1.24-alpine"
+GO_IMAGE = "golang:1.25-alpine"
 GO_IMAGE_CI = "golangci/golangci-lint:v2.1.6"
 DISTROLESS_IMAGE = "gcr.io/distroless/static:nonroot"
 IMAGE_TAG_BASE ?= "ghcr.io/dntosas/${PROJECT}"
