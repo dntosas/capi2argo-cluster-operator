@@ -96,6 +96,7 @@ CACO is configured through environment variables (set via Helm values):
 | `ENABLE_GARBAGE_COLLECTION` | `garbageCollectionEnabled` | `false` | Delete ArgoCD secrets when the corresponding CAPI secret is deleted |
 | `ENABLE_NAMESPACED_NAMES` | `namespacedNamesEnabled` | `false` | Prepend cluster namespace to ArgoCD secret names to avoid collisions |
 | `ENABLE_AUTO_LABEL_COPY` | *(via `extraEnvVars`)* | `false` | Automatically copy all non-system labels from CAPI Cluster to ArgoCD secret |
+| `ENABLE_AUTO_ANNOTATION_COPY` | `autoAnnotationCopyEnabled` | `false` | Automatically copy all non-system annotations from CAPI Cluster to ArgoCD secret |
 
 ### CLI Flags
 
@@ -191,6 +192,57 @@ This copies every label from the Cluster resource to the ArgoCD secret, except:
 - `kubernetes.io/*` (system labels)
 - `cluster.x-k8s.io/*` (CAPI internal labels)
 - `capi-to-argocd/*` (controller internal labels)
+
+### Take-Along Annotations
+
+CACO can copy annotations from a `Cluster` resource to the generated ArgoCD secret. This is particularly useful for values that contain characters forbidden in Kubernetes labels (e.g., `/` in branch names like `feat/test`).
+
+Add an annotation with the format `take-along-annotation.capi-to-argocd.<annotation-key>: ""`:
+
+```yaml
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: my-cluster
+  namespace: default
+  annotations:
+    my-branch-name: "feat/test"
+    my.domain.com/revision: "abc123"
+    take-along-annotation.capi-to-argocd.my-branch-name: ""
+    take-along-annotation.capi-to-argocd.my.domain.com/revision: ""
+```
+
+The resulting ArgoCD secret will include:
+
+```yaml
+metadata:
+  annotations:
+    my-branch-name: "feat/test"
+    my.domain.com/revision: "abc123"
+    taken-from-cluster-annotation.capi-to-argocd.my-branch-name: ""
+    taken-from-cluster-annotation.capi-to-argocd.my.domain.com/revision: ""
+```
+
+### Auto Annotation Copy
+
+As an alternative to take-along annotations, enable automatic copying of **all** non-system annotations:
+
+```bash
+ENABLE_AUTO_ANNOTATION_COPY=true
+```
+
+Or via Helm:
+
+```yaml
+# values.yaml
+autoAnnotationCopyEnabled: true
+```
+
+This copies every annotation from the Cluster resource to the ArgoCD secret, except:
+- `kubernetes.io/*` (system annotations)
+- `cluster.x-k8s.io/*` (CAPI internal annotations)
+- `capi-to-argocd/*` (controller internal annotations)
+- `kubectl.kubernetes.io/*` (kubectl bookkeeping annotations)
 
 ### Namespaced Names
 
