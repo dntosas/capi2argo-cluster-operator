@@ -18,6 +18,10 @@ const (
 	clusterTakeAlongKey        = "take-along-label.capi-to-argocd."
 	clusterTakenFromClusterKey = "taken-from-cluster-label.capi-to-argocd."
 	clusterIgnoreKey           = "ignore-cluster.capi-to-argocd"
+
+	// Annotation sync constants.
+	annotationTakeAlongKey        = "take-along-annotation.capi-to-argocd."
+	annotationTakenFromClusterKey = "taken-from-cluster-annotation.capi-to-argocd."
 )
 
 // GetArgoCommonLabels holds a map of labels that reconciled objects must have.
@@ -30,12 +34,13 @@ func GetArgoCommonLabels() map[string]string {
 
 // ArgoCluster holds all information needed for CAPI --> Argo Cluster conversion.
 type ArgoCluster struct {
-	NamespacedName  types.NamespacedName
-	ClusterName     string
-	ClusterServer   string
-	ClusterLabels   map[string]string
-	TakeAlongLabels map[string]string
-	ClusterConfig   ArgoConfig
+	NamespacedName       types.NamespacedName
+	ClusterName          string
+	ClusterServer        string
+	ClusterLabels        map[string]string
+	TakeAlongLabels      map[string]string
+	TakeAlongAnnotations map[string]string
+	ClusterConfig        ArgoConfig
 }
 
 // ArgoConfig represents Argo Cluster.JSON.config.
@@ -56,12 +61,20 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 	log := ctrl.Log.WithName("argoCluster")
 
 	takeAlongLabels := map[string]string{}
+	takeAlongAnnotations := map[string]string{}
 
 	var errList []string
 
 	if cluster != nil {
 		takeAlongLabels, errList = buildTakeAlongLabels(cluster, cfg)
 		for _, e := range errList {
+			log.Info(e)
+		}
+
+		var annotationErrs []string
+
+		takeAlongAnnotations, annotationErrs = buildTakeAlongAnnotations(cluster, cfg)
+		for _, e := range annotationErrs {
 			log.Info(e)
 		}
 	}
@@ -74,7 +87,8 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 			"capi-to-argocd/cluster-secret-name": c.Name + "-kubeconfig",
 			"capi-to-argocd/cluster-namespace":   c.Namespace,
 		},
-		TakeAlongLabels: takeAlongLabels,
+		TakeAlongLabels:      takeAlongLabels,
+		TakeAlongAnnotations: takeAlongAnnotations,
 		ClusterConfig: ArgoConfig{
 			BearerToken: c.KubeConfig.Users[0].User.Token,
 			TLSClientConfig: &ArgoTLS{
@@ -141,50 +155,98 @@ func buildAutoLabelCopy(clusterLabels map[string]string) map[string]string {
 
 // buildTakeAlongLabels returns valid take-along labels from a cluster.
 // If Config.EnableAutoLabelCopy is true, it copies all non-system labels automatically.
-// Otherwise, it uses the take-along label mechanism for backward compatibility.
+// Otherwise, it uses the take-along label mechanism via buildTakeAlongMap.
 func buildTakeAlongLabels(cluster *clusterv1.Cluster, cfg *Config) (map[string]string, []string) {
-	name := cluster.Name
-	namespace := cluster.Namespace
-	clusterLabels := cluster.Labels
-
 	if cfg.EnableAutoLabelCopy {
-		return buildAutoLabelCopy(clusterLabels), []string{}
+		return buildAutoLabelCopy(cluster.Labels), []string{}
 	}
 
-	// Original behavior: use take-along labels
-	takeAlongLabels := []string{}
+	return buildTakeAlongMap(
+		cluster.Name, cluster.Namespace,
+		cluster.Labels,
+		clusterTakeAlongKey, clusterTakenFromClusterKey,
+		"label",
+	)
+}
 
-	for k := range clusterLabels {
-		l, err := extractTakeAlongLabel(k)
-		if err != nil {
-			return nil, []string{err.Error()}
-		}
+// buildTakeAlongMap is the shared implementation for take-along labels and annotations.
+// It extracts keys marked with takeAlongPrefix, looks up their values in source,
+// and tracks them with takenFromPrefix markers.
+func buildTakeAlongMap(
+	clusterName, clusterNamespace string,
+	source map[string]string,
+	takeAlongPrefix, takenFromPrefix string,
+	kind string,
+) (map[string]string, []string) {
+	takeAlongKeys := []string{}
 
-		if l != "" {
-			takeAlongLabels = append(takeAlongLabels, l)
+	for k := range source {
+		if key, ok := strings.CutPrefix(k, takeAlongPrefix); ok {
+			if key == "" {
+				return nil, []string{fmt.Sprintf("invalid take-along %s, missing key after '/': %s", kind, k)}
+			}
+
+			takeAlongKeys = append(takeAlongKeys, key)
 		}
 	}
 
-	takeAlongLabelsMap := make(map[string]string)
+	result := make(map[string]string)
 
 	var errMsgs []string
 
-	if len(takeAlongLabels) > 0 {
-		for _, label := range takeAlongLabels {
-			if label != "" {
-				if _, ok := clusterLabels[label]; !ok {
-					errMsgs = append(errMsgs, fmt.Sprintf("take-along label '%s' not found on cluster resource: %s, namespace: %s. Ignoring", label, name, namespace))
+	for _, key := range takeAlongKeys {
+		if _, ok := source[key]; !ok {
+			errMsgs = append(errMsgs, fmt.Sprintf("take-along %s '%s' not found on cluster resource: %s, namespace: %s. Ignoring", kind, key, clusterName, clusterNamespace))
 
-					continue
-				}
-
-				takeAlongLabelsMap[label] = clusterLabels[label]
-				takeAlongLabelsMap[fmt.Sprintf("%s%s", clusterTakenFromClusterKey, label)] = ""
-			}
+			continue
 		}
+
+		result[key] = source[key]
+		result[takenFromPrefix+key] = ""
 	}
 
-	return takeAlongLabelsMap, errMsgs
+	return result, errMsgs
+}
+
+// buildAutoAnnotationCopy copies all cluster annotations except system and internal annotations.
+// It filters out:
+// - kubernetes.io/* annotations (system)
+// - cluster.x-k8s.io/* annotations (CAPI internal)
+// - capi-to-argocd/* annotations (controller internal)
+// - take-along-annotation.capi-to-argocd.* annotations (take-along markers)
+// - kubectl.kubernetes.io/* annotations (kubectl bookkeeping).
+func buildAutoAnnotationCopy(clusterAnnotations map[string]string) map[string]string {
+	copyAnnotations := make(map[string]string)
+
+	for key, value := range clusterAnnotations {
+		if strings.HasPrefix(key, "kubernetes.io/") ||
+			strings.HasPrefix(key, "cluster.x-k8s.io/") ||
+			strings.HasPrefix(key, "capi-to-argocd/") ||
+			strings.HasPrefix(key, annotationTakeAlongKey) ||
+			strings.HasPrefix(key, "kubectl.kubernetes.io/") {
+			continue
+		}
+
+		copyAnnotations[key] = value
+	}
+
+	return copyAnnotations
+}
+
+// buildTakeAlongAnnotations returns valid take-along annotations from a cluster.
+// If Config.EnableAutoAnnotationCopy is true, it copies all non-system annotations automatically.
+// Otherwise, it uses the take-along annotation mechanism via buildTakeAlongMap.
+func buildTakeAlongAnnotations(cluster *clusterv1.Cluster, cfg *Config) (map[string]string, []string) {
+	if cfg.EnableAutoAnnotationCopy {
+		return buildAutoAnnotationCopy(cluster.Annotations), []string{}
+	}
+
+	return buildTakeAlongMap(
+		cluster.Name, cluster.Namespace,
+		cluster.Annotations,
+		annotationTakeAlongKey, annotationTakenFromClusterKey,
+		"annotation",
+	)
 }
 
 // BuildNamespacedName returns the Kubernetes NamespacedName for the ArgoCD secret.
@@ -225,15 +287,24 @@ func (a *ArgoCluster) ConvertToSecret() (*corev1.Secret, error) {
 		mergedLabels[key] = value
 	}
 
+	var mergedAnnotations map[string]string
+	if len(a.TakeAlongAnnotations) > 0 {
+		mergedAnnotations = make(map[string]string, len(a.TakeAlongAnnotations))
+		for key, value := range a.TakeAlongAnnotations {
+			mergedAnnotations[key] = value
+		}
+	}
+
 	argoSecret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      a.NamespacedName.Name,
-			Namespace: a.NamespacedName.Namespace,
-			Labels:    mergedLabels,
+			Name:        a.NamespacedName.Name,
+			Namespace:   a.NamespacedName.Namespace,
+			Labels:      mergedLabels,
+			Annotations: mergedAnnotations,
 		},
 		Data: map[string][]byte{
 			"name":   []byte(a.ClusterName),
