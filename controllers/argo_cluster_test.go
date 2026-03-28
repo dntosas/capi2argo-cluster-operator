@@ -222,13 +222,13 @@ func TestBuildAutoLabelCopy(t *testing.T) {
 		{
 			"Test with mixed labels (user + system)",
 			map[string]string{
-				"foo":                                  "bar",
-				"kubernetes.io/cluster-name":           "test",
+				"foo":                                 "bar",
+				"kubernetes.io/cluster-name":          "test",
 				"cluster.x-k8s.io/cluster-name":       "test",
-				"capi-to-argocd/owned":                 "true",
-				"take-along-label.capi-to-argocd.foo":  "",
-				"ignore-cluster.capi-to-argocd":        "",
-				"my.domain.com/environment":            "prod",
+				"capi-to-argocd/owned":                "true",
+				"take-along-label.capi-to-argocd.foo": "",
+				"ignore-cluster.capi-to-argocd":       "",
+				"my.domain.com/environment":           "prod",
 			},
 			map[string]string{
 				"foo":                       "bar",
@@ -238,7 +238,7 @@ func TestBuildAutoLabelCopy(t *testing.T) {
 		{
 			"Test with only system labels",
 			map[string]string{
-				"kubernetes.io/cluster-name":     "test",
+				"kubernetes.io/cluster-name":    "test",
 				"cluster.x-k8s.io/cluster-name": "test",
 			},
 			map[string]string{},
@@ -275,8 +275,8 @@ func TestBuildTakeAlongLabelsWithAutoMode(t *testing.T) {
 					Name:      "test",
 					Namespace: "test",
 					Labels: map[string]string{
-						"foo":                            "bar",
-						"my.domain.com/environment":      "prod",
+						"foo":                           "bar",
+						"my.domain.com/environment":     "prod",
 						"cluster.x-k8s.io/cluster-name": "test",
 					},
 				},
@@ -293,10 +293,10 @@ func TestBuildTakeAlongLabelsWithAutoMode(t *testing.T) {
 					Name:      "test",
 					Namespace: "test",
 					Labels: map[string]string{
-						"user-label":                     "value",
-						"kubernetes.io/cluster-name":     "test",
+						"user-label":                    "value",
+						"kubernetes.io/cluster-name":    "test",
 						"cluster.x-k8s.io/cluster-name": "test",
-						"capi-to-argocd/owned":           "true",
+						"capi-to-argocd/owned":          "true",
 					},
 				},
 			},
@@ -410,6 +410,305 @@ func TestValidateClusterIgnoreLabel(t *testing.T) {
 			assert.Equal(t, tt.testExpectedValue, result)
 		})
 	}
+}
+
+func TestBuildTakeAlongMap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		testName           string
+		source             map[string]string
+		testExpectedError  bool
+		testExpectedValues map[string]string
+	}{
+		{
+			"valid key extraction",
+			map[string]string{
+				"my-branch-name": "feat/test",
+				fmt.Sprintf("%s%s", annotationTakeAlongKey, "my-branch-name"):    "",
+				fmt.Sprintf("%s%s", annotationTakeAlongKey, "my.domain.com/rev"): "",
+				"my.domain.com/rev": "abc",
+			},
+			false,
+			map[string]string{
+				"my-branch-name":    "feat/test",
+				"my.domain.com/rev": "abc",
+				fmt.Sprintf("%s%s", annotationTakenFromClusterKey, "my-branch-name"):    "",
+				fmt.Sprintf("%s%s", annotationTakenFromClusterKey, "my.domain.com/rev"): "",
+			},
+		},
+		{
+			"empty key after prefix returns error",
+			map[string]string{
+				annotationTakeAlongKey: "",
+			},
+			true,
+			nil,
+		},
+		{
+			"no markers returns empty map",
+			map[string]string{
+				"some-annotation": "value",
+			},
+			false,
+			map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			result, errs := buildTakeAlongMap("test", "test", tt.source, annotationTakeAlongKey, annotationTakenFromClusterKey, "annotation")
+			if tt.testExpectedError {
+				assert.NotEmpty(t, errs)
+			} else {
+				assert.Empty(t, errs)
+				assert.Equal(t, tt.testExpectedValues, result)
+			}
+		})
+	}
+}
+
+func TestBuildAutoAnnotationCopy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		testName           string
+		testMock           map[string]string
+		testExpectedValues map[string]string
+	}{
+		{
+			"Test with user annotations only",
+			map[string]string{
+				"my-branch-name":            "feat/test",
+				"my.domain.com/environment": "prod",
+			},
+			map[string]string{
+				"my-branch-name":            "feat/test",
+				"my.domain.com/environment": "prod",
+			},
+		},
+		{
+			"Test with mixed annotations (user + system)",
+			map[string]string{
+				"my-branch-name":                                   "feat/test",
+				"kubernetes.io/description":                        "test",
+				"cluster.x-k8s.io/paused":                          "true",
+				"capi-to-argocd/some-internal":                     "true",
+				"take-along-annotation.capi-to-argocd.foo":         "",
+				"kubectl.kubernetes.io/last-applied-configuration": "{}",
+				"my.domain.com/environment":                        "prod",
+			},
+			map[string]string{
+				"my-branch-name":            "feat/test",
+				"my.domain.com/environment": "prod",
+			},
+		},
+		{
+			"Test with only system annotations",
+			map[string]string{
+				"kubernetes.io/description":  "test",
+				"cluster.x-k8s.io/paused":    "true",
+				"kubectl.kubernetes.io/last": "{}",
+			},
+			map[string]string{},
+		},
+		{
+			"Test with nil annotations",
+			nil,
+			map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			result := buildAutoAnnotationCopy(tt.testMock)
+			assert.Equal(t, tt.testExpectedValues, result)
+		})
+	}
+}
+
+func TestBuildTakeAlongAnnotations(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		ArgoNamespace:            "argocd",
+		EnableAutoAnnotationCopy: false,
+	}
+
+	tests := []struct {
+		testName           string
+		testMock           *clusterv1.Cluster
+		testExpectedError  bool
+		testExpectedValues map[string]string
+	}{
+		{"Test with no take-along annotations",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"some-annotation": "value",
+					},
+				},
+			}, false, map[string]string{}},
+		{"Test with single take-along annotation",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"my-branch-name": "feat/test",
+						"other":          "ignored",
+						fmt.Sprintf("%s%s", annotationTakeAlongKey, "my-branch-name"): "",
+					},
+				},
+			}, false, map[string]string{
+				"my-branch-name": "feat/test",
+				fmt.Sprintf("%s%s", annotationTakenFromClusterKey, "my-branch-name"): "",
+			}},
+		{"Test with multiple take-along annotations",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"my-branch-name":         "feat/test",
+						"my.domain.com/revision": "abc123",
+						fmt.Sprintf("%s%s", annotationTakeAlongKey, "my-branch-name"):         "",
+						fmt.Sprintf("%s%s", annotationTakeAlongKey, "my.domain.com/revision"): "",
+					},
+				},
+			}, false, map[string]string{
+				"my-branch-name":         "feat/test",
+				"my.domain.com/revision": "abc123",
+				fmt.Sprintf("%s%s", annotationTakenFromClusterKey, "my-branch-name"):         "",
+				fmt.Sprintf("%s%s", annotationTakenFromClusterKey, "my.domain.com/revision"): "",
+			}},
+		{"Test with take-along annotation not found on cluster",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"other": "value",
+						fmt.Sprintf("%s%s", annotationTakeAlongKey, "missing"): "",
+					},
+				},
+			}, true, map[string]string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			v, errs := buildTakeAlongAnnotations(tt.testMock, cfg)
+			if tt.testExpectedError {
+				assert.NotEmpty(t, errs)
+			} else {
+				assert.Empty(t, errs)
+			}
+
+			assert.Equal(t, tt.testExpectedValues, v)
+		})
+	}
+}
+
+func TestBuildTakeAlongAnnotationsWithAutoMode(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		ArgoNamespace:            "argocd",
+		EnableAutoAnnotationCopy: true,
+	}
+
+	tests := []struct {
+		testName           string
+		testMock           *clusterv1.Cluster
+		testExpectedValues map[string]string
+	}{
+		{
+			"Test auto mode with user annotations",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"my-branch-name":            "feat/test",
+						"my.domain.com/environment": "prod",
+						"cluster.x-k8s.io/paused":   "true",
+					},
+				},
+			},
+			map[string]string{
+				"my-branch-name":            "feat/test",
+				"my.domain.com/environment": "prod",
+			},
+		},
+		{
+			"Test auto mode filters out system annotations",
+			&clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"user-annotation":                                  "value",
+						"kubernetes.io/description":                        "test",
+						"cluster.x-k8s.io/paused":                          "true",
+						"capi-to-argocd/internal":                          "true",
+						"kubectl.kubernetes.io/last-applied-configuration": "{}",
+					},
+				},
+			},
+			map[string]string{
+				"user-annotation": "value",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			result, errs := buildTakeAlongAnnotations(tt.testMock, cfg)
+			assert.Empty(t, errs)
+			assert.Equal(t, tt.testExpectedValues, result)
+		})
+	}
+}
+
+func TestConvertToSecretWithAnnotations(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{ArgoNamespace: "argocd"}
+
+	a := MockArgoCluster(true, cfg)
+	a.TakeAlongAnnotations = map[string]string{
+		"my-branch-name": "feat/test",
+		fmt.Sprintf("%s%s", annotationTakenFromClusterKey, "my-branch-name"): "",
+	}
+
+	s, err := a.ConvertToSecret()
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	assert.Equal(t, "feat/test", s.Annotations["my-branch-name"])
+	assert.Equal(t, "", s.Annotations[fmt.Sprintf("%s%s", annotationTakenFromClusterKey, "my-branch-name")])
+}
+
+func TestConvertToSecretWithoutAnnotations(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{ArgoNamespace: "argocd"}
+
+	a := MockArgoCluster(true, cfg)
+	a.TakeAlongAnnotations = map[string]string{}
+
+	s, err := a.ConvertToSecret()
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	assert.Nil(t, s.Annotations)
 }
 
 func TestSentinelErrors(t *testing.T) {

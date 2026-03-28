@@ -44,6 +44,10 @@ type Config struct {
 	// EnableAutoLabelCopy enables automatic copying of all non-system labels
 	// from CAPI Cluster resources to ArgoCD secrets.
 	EnableAutoLabelCopy bool
+
+	// EnableAutoAnnotationCopy enables automatic copying of all non-system
+	// annotations from CAPI Cluster resources to ArgoCD secrets.
+	EnableAutoAnnotationCopy bool
 }
 
 // LoadConfigFromEnv builds a Config from environment variables with sensible defaults.
@@ -56,13 +60,15 @@ func LoadConfigFromEnv() Config {
 	gc, _ := strconv.ParseBool(os.Getenv("ENABLE_GARBAGE_COLLECTION"))
 	ns, _ := strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
 	al, _ := strconv.ParseBool(os.Getenv("ENABLE_AUTO_LABEL_COPY"))
+	aa, _ := strconv.ParseBool(os.Getenv("ENABLE_AUTO_ANNOTATION_COPY"))
 
 	return Config{
-		ArgoNamespace:           argoNS,
-		AllowedNamespaces:       parseNamespaceList(os.Getenv("ALLOWED_NAMESPACES")),
-		EnableGarbageCollection: gc,
-		EnableNamespacedNames:   ns,
-		EnableAutoLabelCopy:     al,
+		ArgoNamespace:            argoNS,
+		AllowedNamespaces:        parseNamespaceList(os.Getenv("ALLOWED_NAMESPACES")),
+		EnableGarbageCollection:  gc,
+		EnableNamespacedNames:    ns,
+		EnableAutoLabelCopy:      al,
+		EnableAutoAnnotationCopy: aa,
 	}
 }
 
@@ -262,46 +268,18 @@ func (r *Capi2Argo) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resul
 		changed = true
 	}
 
-	// Check if take-along labels need synchronization.
-	log.V(1).Info("Checking take-along labels", "labels", argoCluster.TakeAlongLabels)
-
-	argoSecretTakenAlongLabels := []string{}
-
-	for l := range argoCluster.TakeAlongLabels {
-		if strings.HasPrefix(l, clusterTakenFromClusterKey) {
-			key := strings.Split(l, clusterTakenFromClusterKey)[1]
-			argoSecretTakenAlongLabels = append(argoSecretTakenAlongLabels, key)
-		}
+	// Synchronize take-along labels.
+	if syncMetadataMap(existingSecret.Labels, argoCluster.TakeAlongLabels, clusterTakenFromClusterKey, log, "label") {
+		changed = true
 	}
 
-	// Remove stale take-along labels.
-	for k := range existingSecret.Labels {
-		if strings.HasPrefix(k, clusterTakenFromClusterKey) {
-			key := strings.Split(k, clusterTakenFromClusterKey)[1]
-			if !slices.Contains(argoSecretTakenAlongLabels, key) {
-				delete(existingSecret.Labels, k)
-				delete(existingSecret.Labels, key)
-
-				changed = true
-			}
-		}
+	// Synchronize take-along annotations.
+	if existingSecret.Annotations == nil {
+		existingSecret.Annotations = make(map[string]string)
 	}
 
-	// Update labels with current values.
-	for k, v := range argoCluster.TakeAlongLabels {
-		if val, ok := existingSecret.Labels[k]; ok {
-			if val != v {
-				log.V(1).Info("Updating label in ArgoSecret", "label", k, "oldValue", val, "newValue", v)
-
-				existingSecret.Labels[k] = v
-				changed = true
-			}
-		} else {
-			log.V(1).Info("Adding label to ArgoSecret", "label", k)
-
-			existingSecret.Labels[k] = v
-			changed = true
-		}
+	if syncMetadataMap(existingSecret.Annotations, argoCluster.TakeAlongAnnotations, annotationTakenFromClusterKey, log, "annotation") {
+		changed = true
 	}
 
 	if changed {
@@ -367,6 +345,53 @@ func (r *Capi2Argo) deleteArgoSecretByLabels(ctx context.Context, log logr.Logge
 	log.Info("Deleted ArgoSecret", "name", secretList.Items[0].Name)
 
 	return nil
+}
+
+// syncMetadataMap synchronizes a desired map of key-value pairs into an existing
+// metadata map (labels or annotations). It removes stale entries tracked by the
+// takenFromPrefix marker and upserts current values. Returns true if any change was made.
+func syncMetadataMap(existing, desired map[string]string, takenFromPrefix string, log logr.Logger, kind string) bool {
+	changed := false
+
+	// Collect keys that are currently desired via the taken-from marker.
+	desiredTracked := []string{}
+
+	for k := range desired {
+		if key, ok := strings.CutPrefix(k, takenFromPrefix); ok {
+			desiredTracked = append(desiredTracked, key)
+		}
+	}
+
+	// Remove stale entries whose taken-from marker is no longer desired.
+	for k := range existing {
+		if key, ok := strings.CutPrefix(k, takenFromPrefix); ok {
+			if !slices.Contains(desiredTracked, key) {
+				delete(existing, k)
+				delete(existing, key)
+
+				changed = true
+			}
+		}
+	}
+
+	// Upsert desired entries.
+	for k, v := range desired {
+		if val, ok := existing[k]; ok {
+			if val != v {
+				log.V(1).Info("Updating "+kind+" in ArgoSecret", kind, k, "oldValue", val, "newValue", v)
+
+				existing[k] = v
+				changed = true
+			}
+		} else {
+			log.V(1).Info("Adding "+kind+" to ArgoSecret", kind, k)
+
+			existing[k] = v
+			changed = true
+		}
+	}
+
+	return changed
 }
 
 // ValidateObjectOwner checks whether reconciled object is managed by CACO or not.

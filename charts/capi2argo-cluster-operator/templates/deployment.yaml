@@ -104,6 +104,10 @@ spec:
             - name: ALLOWED_NAMESPACES
               value: {{ .Values.allowedNamespaces | squote }}
             {{- end }}
+            {{- if .Values.autoAnnotationCopyEnabled }}
+            - name: ENABLE_AUTO_ANNOTATION_COPY
+              value: {{ .Values.autoAnnotationCopyEnabled | squote }}
+            {{- end }}
             {{- if .Values.extraEnvVars }}
             {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
             {{- end }}

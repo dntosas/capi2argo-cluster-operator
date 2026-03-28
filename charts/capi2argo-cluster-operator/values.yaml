@@ -19,6 +19,7 @@ image:
 argoCDNamespace: "argocd"
 namespacedNamesEnabled: false
 garbageCollectionEnabled: true
+autoAnnotationCopyEnabled: false
 
 dryRun: false
 debugMode: false
