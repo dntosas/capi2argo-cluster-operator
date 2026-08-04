@@ -97,6 +97,7 @@ CACO is configured through environment variables (set via Helm values):
 | `ENABLE_NAMESPACED_NAMES` | `namespacedNamesEnabled` | `false` | Prepend cluster namespace to ArgoCD secret names to avoid collisions |
 | `ENABLE_AUTO_LABEL_COPY` | *(via `extraEnvVars`)* | `false` | Automatically copy all non-system labels from CAPI Cluster to ArgoCD secret |
 | `ENABLE_AUTO_ANNOTATION_COPY` | `autoAnnotationCopyEnabled` | `false` | Automatically copy all non-system annotations from CAPI Cluster to ArgoCD secret |
+| `ENABLE_CAPI_CLUSTER_NAME` | `capiClusterNameEnabled` | `false` | Use the CAPI Cluster name instead of the kubeconfig context name for the ArgoCD cluster name |
 
 ### CLI Flags
 

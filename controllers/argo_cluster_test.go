@@ -360,6 +360,36 @@ func TestBuildNamespacedName(t *testing.T) {
 	}
 }
 
+func TestResolveClusterNameSource(t *testing.T) {
+	t.Parallel()
+
+	capiCluster := &CapiCluster{
+		Name: "my-cluster",
+		KubeConfig: KubeConfig{
+			Clusters: []Cluster{
+				{Name: "gke_my-project_europe-west1_my-cluster"},
+			},
+		},
+	}
+
+	tests := []struct {
+		testName           string
+		testConfig         *Config
+		testExpectedValues string
+	}{
+		{"defaults to kubeconfig context name", &Config{EnableCapiClusterName: false}, "gke_my-project_europe-west1_my-cluster"},
+		{"uses CAPI cluster name when enabled", &Config{EnableCapiClusterName: true}, "my-cluster"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+
+			s := resolveClusterNameSource(capiCluster, tt.testConfig)
+			assert.Equal(t, tt.testExpectedValues, s)
+		})
+	}
+}
+
 func TestValidateClusterIgnoreLabel(t *testing.T) {
 	t.Parallel()
 

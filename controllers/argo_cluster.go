@@ -81,7 +81,7 @@ func NewArgoCluster(c *CapiCluster, s *corev1.Secret, cluster *clusterv1.Cluster
 
 	return &ArgoCluster{
 		NamespacedName: BuildNamespacedName(s.ObjectMeta.Name, s.ObjectMeta.Namespace, cfg),
-		ClusterName:    BuildClusterName(c.KubeConfig.Clusters[0].Name, s.ObjectMeta.Namespace, cfg),
+		ClusterName:    BuildClusterName(resolveClusterNameSource(c, cfg), s.ObjectMeta.Namespace, cfg),
 		ClusterServer:  c.KubeConfig.Clusters[0].Cluster.Server,
 		ClusterLabels: map[string]string{
 			"capi-to-argocd/cluster-secret-name": c.Name + "-kubeconfig",
@@ -255,6 +255,17 @@ func BuildNamespacedName(s string, namespace string, cfg *Config) types.Namespac
 		Name:      "cluster-" + BuildClusterName(strings.TrimSuffix(s, "-kubeconfig"), namespace, cfg),
 		Namespace: cfg.ArgoNamespace,
 	}
+}
+
+// resolveClusterNameSource picks the source string for the ArgoCD cluster
+// name: the kubeconfig context name by default, or the CAPI Cluster name
+// when Config.EnableCapiClusterName is set.
+func resolveClusterNameSource(c *CapiCluster, cfg *Config) string {
+	if cfg.EnableCapiClusterName {
+		return c.Name
+	}
+
+	return c.KubeConfig.Clusters[0].Name
 }
 
 // BuildClusterName returns the cluster name with optional namespace prefix.

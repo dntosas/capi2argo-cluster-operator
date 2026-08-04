@@ -48,6 +48,10 @@ type Config struct {
 	// EnableAutoAnnotationCopy enables automatic copying of all non-system
 	// annotations from CAPI Cluster resources to ArgoCD secrets.
 	EnableAutoAnnotationCopy bool
+
+	// EnableCapiClusterName uses the CAPI Cluster's name instead of the
+	// kubeconfig context name for the ArgoCD cluster name field.
+	EnableCapiClusterName bool
 }
 
 // LoadConfigFromEnv builds a Config from environment variables with sensible defaults.
@@ -61,6 +65,7 @@ func LoadConfigFromEnv() Config {
 	ns, _ := strconv.ParseBool(os.Getenv("ENABLE_NAMESPACED_NAMES"))
 	al, _ := strconv.ParseBool(os.Getenv("ENABLE_AUTO_LABEL_COPY"))
 	aa, _ := strconv.ParseBool(os.Getenv("ENABLE_AUTO_ANNOTATION_COPY"))
+	cn, _ := strconv.ParseBool(os.Getenv("ENABLE_CAPI_CLUSTER_NAME"))
 
 	return Config{
 		ArgoNamespace:            argoNS,
@@ -69,6 +74,7 @@ func LoadConfigFromEnv() Config {
 		EnableNamespacedNames:    ns,
 		EnableAutoLabelCopy:      al,
 		EnableAutoAnnotationCopy: aa,
+		EnableCapiClusterName:    cn,
 	}
 }
 
