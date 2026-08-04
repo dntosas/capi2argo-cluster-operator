@@ -38,6 +38,7 @@ var (
 		EnableGarbageCollection: false,
 		EnableNamespacedNames:   false,
 		EnableAutoLabelCopy:     false,
+		EnableCapiClusterName:   false,
 	}
 )
 
